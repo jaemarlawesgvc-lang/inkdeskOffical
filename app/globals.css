@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * CSS custom properties consumed by tailwind.config.ts semantic colour tokens.
+   * All values are space-separated HSL components (no `hsl()` wrapper) so
+   * Tailwind can compose them with opacity modifiers: e.g. `bg-background/80`.
+   *
+   * InkDesk is dark-mode-first. A single set of variables is defined here;
+   * the root <html> element carries class="dark" at all times.
+   */
+  :root {
+    /* Surfaces */
+    --background:        0 0% 3%;      /* ink-950 #080808  */
+    --foreground:        40 52% 94%;   /* parchment-100    */
+    --card:              0 0% 10%;     /* ink-800 #1a1a1a  */
+    --card-foreground:   40 52% 94%;
+    --popover:           0 0% 8%;
+    --popover-foreground:40 52% 94%;
+
+    /* Brand */
+    --primary:           43 100% 50%; /* gold-500 #ffb700 */
+    --primary-foreground:0 0% 3%;
+
+    /* Neutrals */
+    --secondary:         0 0% 15%;
+    --secondary-foreground: 40 52% 94%;
+    --muted:             0 0% 12%;
+    --muted-foreground:  0 0% 55%;
+
+    /* Accent (same as primary for InkDesk gold) */
+    --accent:            43 100% 50%;
+    --accent-foreground: 0 0% 3%;
+
+    /* Destructive */
+    --destructive:       350 80% 45%;
+    --destructive-foreground: 40 52% 94%;
+
+    /* Chrome */
+    --border:            0 0% 20%;
+    --input:             0 0% 12%;
+    --ring:              43 100% 50%;
+    --radius:            0.375rem;
+  }
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+
+  /* Selection colour */
+  ::selection {
+    background-color: hsl(43 100% 50% / 0.25);
+    color: hsl(40 52% 94%);
+  }
+
+  /* Focus ring consistent with brand */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Public artist page — cinematic motion utilities
+ * Pure-CSS so they work in Server Components. All respect reduced-motion.
+ * ──────────────────────────────────────────────────────────────────────────*/
+@layer utilities {
+  /* Slow cinematic zoom + drift on hero background imagery */
+  @keyframes ken-burns {
+    0%   { transform: scale(1.08) translate3d(0, 0, 0); }
+    100% { transform: scale(1.22) translate3d(-1.5%, -2%, 0); }
+  }
+  .animate-ken-burns {
+    animation: ken-burns 22s ease-out forwards;
+  }
+
+  /* Gentle vertical float for decorative cards / accents */
+  @keyframes float-y {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-14px); }
+  }
+  .animate-float-y {
+    animation: float-y 7s ease-in-out infinite;
+  }
+
+  /* Infinite horizontal marquee (portfolio strip) */
+  @keyframes marquee-x {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-marquee-x {
+    animation: marquee-x 40s linear infinite;
+  }
+  .marquee-paused:hover .animate-marquee-x {
+    animation-play-state: paused;
+  }
+
+  /* Animated gradient sweep for headline text */
+  @keyframes gradient-pan {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+  .animate-gradient-text {
+    background-size: 200% auto;
+    animation: gradient-pan 6s linear infinite;
+  }
+
+  /* Scroll-reveal: initial hidden state + revealed state (toggled by JS) */
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Slow drifting conic shimmer for ambient backgrounds */
+  @keyframes spin-slow-full {
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin-slow-full {
+    animation: spin-slow-full 30s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ken-burns,
+  .animate-float-y,
+  .animate-marquee-x,
+  .animate-gradient-text,
+  .animate-spin-slow-full {
+    animation: none !important;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

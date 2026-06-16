@@ -1,0 +1,75 @@
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { Sidebar } from '@/components/dashboard/Sidebar'
+import { BottomNav } from '@/components/dashboard/BottomNav'
+import { TopBar } from '@/components/dashboard/TopBar'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: { default: 'Dashboard', template: '%s — InkDesk' },
+  robots: { index: false, follow: false },
+}
+
+interface DashboardLayoutProps {
+  children: React.ReactNode
+}
+
+export default async function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
+  const supabase = await createSupabaseServerClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // If there is no user, just render an empty shell for now.
+  // (You can add a login redirect later once loops are fixed.)
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <p>Please log in to view your dashboard.</p>
+      </div>
+    )
+  }
+
+  // Load artist (may be null)
+  const { data: artist } = await supabase
+    .from('artists')
+    .select('id, user_id, username, display_name, onboarding_complete')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  console.log('[dashboard/layout] user', user.id, 'artist', artist)
+
+  const username = artist?.username ?? ''
+  const displayName = artist?.display_name ?? user.email ?? 'Artist'
+
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('plan, status')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const plan =
+    subscription?.status === 'active' || subscription?.status === 'trialing'
+      ? (subscription.plan as 'free' | 'pro' | 'studio')
+      : 'free'
+
+  return (
+    <div className="min-h-screen bg-black flex">
+      {/* Desktop sidebar */}
+      <Sidebar username={username} />
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-60">
+        <TopBar displayName={displayName} plan={plan} />
+        <main className="flex-1 px-4 sm:px-6 py-6 pb-24 lg:pb-6">
+          {children}
+        </main>
+      </div>
+
+      {/* Mobile bottom nav */}
+      <BottomNav username={username} />
+    </div>
+  )
+}
