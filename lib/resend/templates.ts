@@ -133,7 +133,7 @@ ${locationLine}
   Please contact your artist at least 48 hours before your appointment if you need to cancel or reschedule.
   Late cancellations may forfeit the deposit.
 </p>
-${data.consentFormUrl ? `<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">Please review and bring a completed copy of the <a href="${data.consentFormUrl}" style="color:#ffffff;text-decoration:underline;">consent form</a> to your appointment.</p>` : ''}
+${data.consentFormUrl ? `<p style="margin:0 0 16px;font-size:14px;color:#a3a3a3;line-height:1.5;">Please complete your consent form online before your appointment — it takes about two minutes.</p><a href="${data.consentFormUrl}" style="display:inline-block;margin:0 0 24px;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Fill out consent form</a>` : ''}
 ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View booking status</a>` : ''}`
 
   return {
@@ -451,5 +451,38 @@ ${data.aftercareGuideUrl ? `<a href="${data.aftercareGuideUrl}" style="display:i
   return {
     subject: `Aftercare instructions from ${data.artistName}`,
     html: layout(content, (data as any).artistEmail ?? undefined),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 9. Consent Form Submitted — to artist
+// ---------------------------------------------------------------------------
+
+export interface ConsentFormSubmittedData {
+  artistName: string
+  clientName: string
+  tattooDescription: string
+  dashboardUrl: string
+  artistEmail: string | null
+}
+
+export function consentFormSubmittedTemplate(data: ConsentFormSubmittedData): {
+  subject: string
+  html: string
+} {
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Consent form received</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  <strong style="color:#ffffff;">${esc(data.clientName)}</strong> has completed and signed their consent form online.
+</p>
+<div style="margin-bottom:24px;padding:16px;background-color:#262626;border-radius:8px;">
+  <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#a3a3a3;text-transform:uppercase;letter-spacing:0.5px;">Tattoo description</p>
+  <p style="margin:0;font-size:14px;color:#e5e5e5;line-height:1.5;">${esc(data.tattooDescription)}</p>
+</div>
+<a href="${data.dashboardUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View signed form</a>`
+
+  return {
+    subject: `${data.clientName} signed their consent form`,
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }

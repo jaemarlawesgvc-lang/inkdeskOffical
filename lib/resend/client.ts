@@ -29,6 +29,7 @@ export type EmailType =
   | 'review_request'
   | 'cancellation_opening'
   | 'new_message_notification'
+  | 'consent_form_submitted'
 
 export interface SendEmailParams {
   to: string

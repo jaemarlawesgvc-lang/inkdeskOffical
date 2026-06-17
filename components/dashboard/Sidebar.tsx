@@ -73,6 +73,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/consent-forms',
+    label: 'Consent Forms',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h6.586A2 2 0 0114 2.586L17.414 6A2 2 0 0118 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm8.793 5.293a1 1 0 00-1.414-1.414L9 10.257l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l3.086-3.085z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/waitlist',
     label: 'Waitlist',
     icon: (

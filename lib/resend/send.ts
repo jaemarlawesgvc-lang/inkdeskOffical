@@ -58,7 +58,7 @@ function buildEmailData(
       ? `${appUrl}/booking/status?token=${booking.accessToken}`
       : null,
     consentFormUrl: opts.includeConsentFormUrl
-      ? `${appUrl}/api/consent-form?artist_id=${booking.artistId}`
+      ? `${appUrl}/consent?artist_id=${booking.artistId}&booking_id=${booking.bookingId}`
       : null,
     aftercareGuideUrl: opts.includeAftercareGuideUrl
       ? `${appUrl}/api/aftercare-guide?artist_id=${booking.artistId}`

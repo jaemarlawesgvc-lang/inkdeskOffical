@@ -23,12 +23,12 @@ export function Footer({ artistName, artistId, artistEmail }: FooterProps) {
               Download Aftercare Guide
             </a>
             <a
-              href={`/api/consent-form?artist_id=${artistId}`}
+              href={`/consent?artist_id=${artistId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/40 hover:text-white text-sm transition-colors duration-150 underline underline-offset-2"
             >
-              Download Consent Form
+              Fill Out Consent Form
             </a>
           </div>
         )}
