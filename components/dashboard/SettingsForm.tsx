@@ -26,6 +26,7 @@ interface SettingsData {
   hourlyRate: number | null
   depositAmount: number | null
   depositRequired: boolean
+  pricingNotes: string
   timezone: string
   availability: AvailabilitySlot[]
   emailBookingConfirmation: boolean
@@ -288,6 +289,18 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
             </div>
           </Field>
         )}
+        <Field label="Pricing notes" id="pricingNotes">
+          <textarea
+            id="pricingNotes"
+            rows={3}
+            value={data.pricingNotes}
+            onChange={(e) => set('pricingNotes', e.target.value)}
+            className={`${inputCls} resize-none`}
+            placeholder="e.g. Minimum charge £80, half sleeves from £600"
+            maxLength={1000}
+          />
+          <p className="text-xs text-white/30 mt-1">{data.pricingNotes.length}/1000 — shown on your public page below your services</p>
+        </Field>
       </Section>
 
       {/* ── Billing ── */}

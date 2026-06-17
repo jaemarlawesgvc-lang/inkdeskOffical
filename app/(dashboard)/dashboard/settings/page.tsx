@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SettingsForm } from '@/components/dashboard/SettingsForm'
+import { FaqManager } from '@/components/dashboard/FaqManager'
+import { CredentialsManager } from '@/components/dashboard/CredentialsManager'
 import { resolveActivePlan } from '@/lib/stripe/plans'
 import type { Metadata } from 'next'
 
@@ -20,6 +22,7 @@ export default async function SettingsPage() {
     .select(
       `
       id,
+      username,
       display_name,
       bio,
       style_tags,
@@ -29,6 +32,7 @@ export default async function SettingsPage() {
       hourly_rate,
       deposit_amount,
       deposit_required,
+      pricing_notes,
       email_booking_confirmation,
       email_reminders,
       email_aftercare,
@@ -72,6 +76,37 @@ export default async function SettingsPage() {
     artist.artist_availability as { timezone: string }[] | null
   )?.[0]
 
+  const { data: faqRows } = await supabase
+    .from('artist_faqs')
+    .select('id, question, answer, display_order')
+    .eq('artist_id', artist.id)
+    .order('display_order', { ascending: true })
+
+  const faqs = (faqRows ?? []).map((f) => ({
+    id: f.id,
+    question: f.question,
+    answer: f.answer,
+    displayOrder: f.display_order,
+  }))
+
+  const { data: credentialRows } = await supabase
+    .from('artist_credentials')
+    .select('id, type, title, issuing_body, year, expiry_date, url, storage_path')
+    .eq('artist_id', artist.id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  const credentials = (credentialRows ?? []).map((c) => ({
+    id: c.id,
+    type: c.type as 'license' | 'award' | 'publication',
+    title: c.title,
+    issuingBody: c.issuing_body,
+    year: c.year,
+    expiryDate: c.expiry_date,
+    url: c.url,
+    storagePath: c.storage_path,
+  }))
+
   return (
     <div className="space-y-6">
       <div>
@@ -92,6 +127,7 @@ export default async function SettingsPage() {
           hourlyRate: artist.hourly_rate,
           depositAmount: artist.deposit_amount,
           depositRequired: artist.deposit_required ?? true,
+          pricingNotes: artist.pricing_notes ?? '',
           timezone: firstSlot?.timezone ?? 'Europe/London',
           availability,
           emailBookingConfirmation: artist.email_booking_confirmation ?? true,
@@ -99,6 +135,26 @@ export default async function SettingsPage() {
           emailAftercare: artist.email_aftercare ?? true,
         }}
       />
+
+      <section id="faq" className="bg-white/5 border border-white/10 rounded-xl p-5 sm:p-6 space-y-5 max-w-2xl">
+        <div>
+          <h2 className="text-base font-semibold text-white">FAQ</h2>
+          <p className="text-white/40 text-sm mt-0.5">
+            Shown on your public FAQ page at /{artist.username}/faq
+          </p>
+        </div>
+        <FaqManager initialFaqs={faqs} />
+      </section>
+
+      <section id="credentials" className="bg-white/5 border border-white/10 rounded-xl p-5 sm:p-6 space-y-5 max-w-2xl">
+        <div>
+          <h2 className="text-base font-semibold text-white">Credentials</h2>
+          <p className="text-white/40 text-sm mt-0.5">
+            Licenses are kept private — only a &ldquo;Licensed&rdquo; badge is shown publicly. Awards and publications appear on your page.
+          </p>
+        </div>
+        <CredentialsManager artistId={artist.id} initialCredentials={credentials} />
+      </section>
     </div>
   )
 }

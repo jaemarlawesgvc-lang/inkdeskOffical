@@ -16,6 +16,7 @@ import { getStripe, priceIdToPlan } from '@/lib/stripe/server'
 import {
   sendBookingConfirmation,
   sendArtistNotification,
+  sendDepositReceipt,
   loadBookingWithArtist,
 } from '@/lib/resend/send'
 import type { createSupabaseAdminClient } from '@/lib/supabase/server'
@@ -402,9 +403,27 @@ async function handlePaymentIntentSucceeded(
 
   const confirmedBookingData = await loadBookingWithArtist(supabase, bookingId)
   if (confirmedBookingData) {
+    let cardLast4: string | null = null
+    try {
+      const fullPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
+        expand: ['payment_method'],
+      })
+      const paymentMethod = fullPaymentIntent.payment_method
+      cardLast4 =
+        typeof paymentMethod === 'object' && paymentMethod?.card
+          ? paymentMethod.card.last4
+          : null
+    } catch (err) {
+      console.error(
+        '[stripe-webhook] could not retrieve payment method for receipt:',
+        err instanceof Error ? err.message : err,
+      )
+    }
+
     await Promise.allSettled([
       sendBookingConfirmation(supabase, confirmedBookingData),
       sendArtistNotification(supabase, confirmedBookingData),
+      sendDepositReceipt(supabase, confirmedBookingData, cardLast4),
     ])
   }
 }

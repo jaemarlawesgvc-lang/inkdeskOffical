@@ -24,6 +24,7 @@ export type EmailType =
   | 'artist_notification'
   | 'reminder_48h'
   | 'aftercare'
+  | 'deposit_receipt'
 
 export interface SendEmailParams {
   to: string

@@ -2,11 +2,13 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
 import { clientEnv } from '@/lib/env.client'
+import { PublicHeader } from '@/components/public/PublicHeader'
 import { HeroSection } from '@/components/public/HeroSection'
 import { PortfolioMarquee } from '@/components/public/PortfolioMarquee'
 import { PortfolioSection } from '@/components/public/PortfolioSection'
 import { AboutSection } from '@/components/public/AboutSection'
 import { ServicesSection } from '@/components/public/ServicesSection'
+import { CredentialsSection } from '@/components/public/CredentialsSection'
 import { BookingSection } from '@/components/public/BookingSection'
 import { Footer } from '@/components/public/Footer'
 import { JsonLd } from '@/components/public/JsonLd'
@@ -39,6 +41,7 @@ interface ArtistRecord {
   studio_name: string | null
   studio_address: string | null
   instagram_handle: string | null
+  pricing_notes: string | null
   site_data: SiteData | null
   onboarding_complete: boolean
   portfolio_images: { public_url: string; caption: string | null; display_order: number }[]
@@ -68,6 +71,7 @@ async function loadArtist(username: string): Promise<ArtistRecord | null> {
       studio_name,
       studio_address,
       instagram_handle,
+      pricing_notes,
       site_data,
       onboarding_complete,
       portfolio_images (
@@ -175,6 +179,46 @@ export default async function ArtistPage({
   const aboutTitle = site.about?.title ?? 'About'
   const aboutBody = site.about?.body ?? artist.bio ?? ''
 
+  const supabase = createSupabaseAdminClient()
+  const { count: faqCount } = await supabase
+    .from('artist_faqs')
+    .select('id', { count: 'exact', head: true })
+    .eq('artist_id', artist.id)
+
+  const today = new Date().toISOString().slice(0, 10)
+  const { data: credentialRows } = await supabase
+    .from('artist_credentials')
+    .select('id, type, title, issuing_body, year, url, storage_path, expiry_date')
+    .eq('artist_id', artist.id)
+    .is('deleted_at', null)
+
+  const isLicensed = (credentialRows ?? []).some(
+    (c) => c.type === 'license' && (!c.expiry_date || c.expiry_date >= today),
+  )
+
+  const publicCredentials = await Promise.all(
+    (credentialRows ?? [])
+      .filter((c) => c.type === 'award' || c.type === 'publication')
+      .map(async (c) => {
+        let imageUrl: string | null = null
+        if (c.storage_path) {
+          const { data: signed } = await supabase.storage
+            .from('credentials')
+            .createSignedUrl(c.storage_path, 3600)
+          imageUrl = signed?.signedUrl ?? null
+        }
+        return {
+          id: c.id,
+          type: c.type as 'award' | 'publication',
+          title: c.title,
+          issuingBody: c.issuing_body,
+          year: c.year,
+          url: c.url,
+          imageUrl,
+        }
+      }),
+  )
+
   return (
     <>
       <JsonLd
@@ -185,7 +229,15 @@ export default async function ArtistPage({
         address={artist.studio_address}
       />
 
-      <div className="min-h-screen bg-black text-white">
+      <div id="top" className="min-h-screen bg-black text-white">
+        <PublicHeader
+          artistName={name}
+          username={artist.username}
+          accentColor={accent}
+          showAbout={Boolean(aboutBody || styleTags.length > 0)}
+          showFaq={(faqCount ?? 0) > 0}
+        />
+
         <HeroSection
           headline={heroHeadline}
           subheadline={heroSub}
@@ -211,7 +263,9 @@ export default async function ArtistPage({
           />
         )}
 
-        <ServicesSection services={services} accentColor={accent} />
+        <ServicesSection services={services} accentColor={accent} pricingNotes={artist.pricing_notes} />
+
+        <CredentialsSection credentials={publicCredentials} isLicensed={isLicensed} accentColor={accent} />
 
         <BookingSection
           artistId={artist.id}
@@ -220,7 +274,7 @@ export default async function ArtistPage({
           accentColor={accent}
         />
 
-        <Footer artistName={name} />
+        <Footer artistName={name} artistId={artist.id} />
       </div>
     </>
   )

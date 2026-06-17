@@ -358,10 +358,17 @@ export function BookingSection({
         <h2 className="font-serif text-3xl sm:text-4xl font-bold mb-2 text-center" style={{ color: '#f5f5f0' }}>
           Book a session
         </h2>
-        <p className="text-white/50 text-sm text-center mb-8">
+        <p className="text-white/50 text-sm text-center mb-2">
           {depositRequired
             ? 'A deposit is required to confirm your booking.'
             : 'Submit a request and the artist will confirm your appointment.'}
+        </p>
+
+        <p
+          className={['text-center text-base font-bold', depositRequired && depositAmount !== null ? 'mb-8' : 'mb-6'].join(' ')}
+          style={{ color: accentColor }}
+        >
+          {depositRequired && depositAmount !== null ? `Deposit due today: £${depositAmount.toFixed(2)}` : ' '}
         </p>
 
         {errorMessage && (

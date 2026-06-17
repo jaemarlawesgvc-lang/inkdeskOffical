@@ -5,6 +5,7 @@ import {
   artistNotificationTemplate,
   reminder48hTemplate,
   aftercareTemplate,
+  depositReceiptTemplate,
   type BookingEmailData,
 } from '@/lib/resend/templates'
 import { clientEnv } from '@/lib/env.client'
@@ -15,6 +16,7 @@ import { clientEnv } from '@/lib/env.client'
 
 export interface BookingWithArtist {
   bookingId: string
+  artistId: string
   clientName: string
   clientEmail: string
   artistName: string
@@ -32,7 +34,7 @@ export interface BookingWithArtist {
 
 function buildEmailData(
   booking: BookingWithArtist,
-  opts: { includeDashboardUrl: boolean; includeStatusUrl: boolean },
+  opts: { includeDashboardUrl: boolean; includeStatusUrl: boolean; includeConsentFormUrl?: boolean; includeAftercareGuideUrl?: boolean },
 ): BookingEmailData {
   const appUrl = clientEnv.appUrl
 
@@ -52,6 +54,12 @@ function buildEmailData(
     statusUrl: opts.includeStatusUrl && booking.accessToken
       ? `${appUrl}/booking/status?token=${booking.accessToken}`
       : null,
+    consentFormUrl: opts.includeConsentFormUrl
+      ? `${appUrl}/api/consent-form?artist_id=${booking.artistId}`
+      : null,
+    aftercareGuideUrl: opts.includeAftercareGuideUrl
+      ? `${appUrl}/api/aftercare-guide?artist_id=${booking.artistId}`
+      : null,
   }
 }
 
@@ -66,6 +74,7 @@ export async function sendBookingConfirmation(
   const data = buildEmailData(booking, {
     includeDashboardUrl: false,
     includeStatusUrl: true,
+    includeConsentFormUrl: true,
   })
   const { subject, html } = bookingConfirmationTemplate(data)
 
@@ -141,6 +150,7 @@ export async function sendAftercare(
   const data = buildEmailData(booking, {
     includeDashboardUrl: false,
     includeStatusUrl: false,
+    includeAftercareGuideUrl: true,
   })
   const { subject, html } = aftercareTemplate(data)
 
@@ -149,6 +159,40 @@ export async function sendAftercare(
     subject,
     html,
     emailType: 'aftercare',
+    bookingId: booking.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 5. Deposit Receipt → client (sent on payment_intent.succeeded)
+// ---------------------------------------------------------------------------
+
+export async function sendDepositReceipt(
+  supabase: SupabaseClient,
+  booking: BookingWithArtist,
+  cardLast4: string | null,
+): Promise<SendResult> {
+  if (booking.depositAmount === null) {
+    return { success: false, messageId: null, error: 'No deposit amount on booking', skipped: false }
+  }
+
+  const { subject, html } = depositReceiptTemplate({
+    clientName: booking.clientName,
+    artistName: booking.artistName,
+    bookingDate: booking.bookingDate,
+    bookingTime: booking.bookingTime,
+    depositAmount: booking.depositAmount,
+    paymentDate: new Date().toISOString(),
+    cardLast4,
+  })
+
+  return sendEmail({
+    to: booking.clientEmail,
+    subject,
+    html,
+    emailType: 'deposit_receipt',
     bookingId: booking.bookingId,
     userId: null,
     supabase,
@@ -168,6 +212,7 @@ export async function loadBookingWithArtist(
     .select(
       `
       id,
+      artist_id,
       client_name,
       client_email,
       booking_date,
@@ -205,6 +250,7 @@ export async function loadBookingWithArtist(
 
   return {
     bookingId: booking.id,
+    artistId: booking.artist_id,
     clientName: booking.client_name,
     clientEmail: booking.client_email,
     artistName: artist.display_name ?? 'Your artist',

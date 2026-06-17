@@ -14,6 +14,7 @@ const schema = z.object({
   hourlyRate: z.number().positive().max(9999.99).nullable().optional(),
   depositAmount: z.number().positive().max(9999.99).nullable().optional(),
   depositRequired: z.boolean(),
+  pricingNotes: z.string().max(1000).trim(),
   timezone: z.string().min(1),
   availability: z.array(
     z.object({
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       hourly_rate: d.hourlyRate ?? null,
       deposit_amount: d.depositAmount ?? null,
       deposit_required: d.depositRequired,
+      pricing_notes: d.pricingNotes || null,
       email_booking_confirmation: d.emailBookingConfirmation,
       email_reminders: d.emailReminders,
       email_aftercare: d.emailAftercare,

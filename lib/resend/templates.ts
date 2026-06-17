@@ -83,6 +83,8 @@ export interface BookingEmailData {
   studioAddress: string | null
   dashboardUrl: string
   statusUrl: string | null
+  consentFormUrl: string | null
+  aftercareGuideUrl: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +131,7 @@ ${locationLine}
   Please contact your artist at least 48 hours before your appointment if you need to cancel or reschedule.
   Late cancellations may forfeit the deposit.
 </p>
+${data.consentFormUrl ? `<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">Please review and bring a completed copy of the <a href="${data.consentFormUrl}" style="color:#ffffff;text-decoration:underline;">consent form</a> to your appointment.</p>` : ''}
 ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View booking status</a>` : ''}`
 
   return {
@@ -232,7 +235,64 @@ ${locationLine}
 }
 
 // ---------------------------------------------------------------------------
-// 4. Aftercare — to client (sent 24h after appointment)
+// 4. Deposit Receipt — to client (sent on payment_intent.succeeded)
+// ---------------------------------------------------------------------------
+
+export interface DepositReceiptData {
+  clientName: string
+  artistName: string
+  bookingDate: string
+  bookingTime: string | null
+  depositAmount: number
+  paymentDate: string
+  cardLast4: string | null
+}
+
+export function depositReceiptTemplate(data: DepositReceiptData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.bookingDate)
+  const timeDisplay = formatTime(data.bookingTime)
+  const paidOn = new Date(data.paymentDate).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const cardLine = data.cardLast4
+    ? `<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Card</td>
+       <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">&bull;&bull;&bull;&bull; ${esc(data.cardLast4)}</td></tr>`
+    : ''
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Deposit receipt</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, this confirms your deposit payment for your appointment with <strong style="color:#ffffff;">${esc(data.artistName)}</strong>.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#262626;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Amount paid</td>
+    <td style="padding:8px 0;color:#22c55e;font-size:14px;text-align:right;">&pound;${data.depositAmount.toFixed(2)}</td></tr>
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Payment date</td>
+    <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${paidOn}</td></tr>
+${cardLine}
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Appointment</td>
+    <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
+</table>
+<h2 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#ffffff;">Cancellation policy</h2>
+<p style="margin:0;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Please contact your artist at least 48 hours before your appointment if you need to cancel or reschedule.
+  Late cancellations may forfeit the deposit.
+</p>`
+
+  return {
+    subject: `Deposit receipt — ${data.artistName}`,
+    html: layout(content),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5. Aftercare — to client (sent 24h after appointment)
 // ---------------------------------------------------------------------------
 
 export function aftercareTemplate(data: BookingEmailData): {
@@ -280,11 +340,12 @@ export function aftercareTemplate(data: BookingEmailData): {
 </ul>
 
 <h2 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#ffffff;">When to contact your artist</h2>
-<p style="margin:0;font-size:14px;color:#a3a3a3;line-height:1.5;">
+<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
   If you notice excessive redness, swelling, pus, or a rash that lasts more than a few days,
   reach out to your artist or consult a healthcare professional. Minor issues during healing are
   normal, but it&rsquo;s always better to check.
-</p>`
+</p>
+${data.aftercareGuideUrl ? `<a href="${data.aftercareGuideUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Download printable aftercare guide</a>` : ''}`
 
   return {
     subject: `Aftercare instructions from ${data.artistName}`,

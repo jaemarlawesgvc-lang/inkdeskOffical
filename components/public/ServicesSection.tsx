@@ -9,10 +9,11 @@ interface Service {
 interface ServicesSectionProps {
   services: Service[]
   accentColor: string
+  pricingNotes?: string | null
 }
 
-export function ServicesSection({ services, accentColor }: ServicesSectionProps) {
-  if (services.length === 0) return null
+export function ServicesSection({ services, accentColor, pricingNotes }: ServicesSectionProps) {
+  if (services.length === 0 && !pricingNotes) return null
 
   return (
     <section
@@ -37,6 +38,7 @@ export function ServicesSection({ services, accentColor }: ServicesSectionProps)
           <div className="w-12 h-[2px] mx-auto mt-4 rounded-full" style={{ backgroundColor: accentColor }} />
         </Reveal>
 
+        {services.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service, i) => (
             <Reveal key={i} delay={(i % 3) * 100} className="h-full">
@@ -71,6 +73,15 @@ export function ServicesSection({ services, accentColor }: ServicesSectionProps)
             </Reveal>
           ))}
         </div>
+        )}
+
+        {pricingNotes && (
+          <Reveal delay={services.length > 0 ? 150 : 0} className={services.length > 0 ? 'mt-10' : ''}>
+            <div className="max-w-2xl mx-auto text-center p-5 rounded-xl bg-white/[0.03] border border-white/5">
+              <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{pricingNotes}</p>
+            </div>
+          </Reveal>
+        )}
       </div>
     </section>
   )
