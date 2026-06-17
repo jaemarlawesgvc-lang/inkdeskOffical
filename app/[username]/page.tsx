@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { createSupabaseAdminClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server'
+import { isFullyBookedNext14Days } from '@/lib/booking/availability'
 import { clientEnv } from '@/lib/env.client'
 import { PublicHeader } from '@/components/public/PublicHeader'
 import { HeroSection } from '@/components/public/HeroSection'
@@ -9,6 +10,9 @@ import { PortfolioSection } from '@/components/public/PortfolioSection'
 import { AboutSection } from '@/components/public/AboutSection'
 import { ServicesSection } from '@/components/public/ServicesSection'
 import { CredentialsSection } from '@/components/public/CredentialsSection'
+import { StudioSection } from '@/components/public/StudioSection'
+import { ReviewsSection } from '@/components/public/ReviewsSection'
+import { WaitlistButton } from '@/components/public/WaitlistButton'
 import { BookingSection } from '@/components/public/BookingSection'
 import { Footer } from '@/components/public/Footer'
 import { JsonLd } from '@/components/public/JsonLd'
@@ -31,6 +35,7 @@ interface SiteData {
 
 interface ArtistRecord {
   id: string
+  user_id: string
   username: string
   display_name: string | null
   bio: string | null
@@ -40,6 +45,8 @@ interface ArtistRecord {
   deposit_amount: number | null
   studio_name: string | null
   studio_address: string | null
+  studio_lat: number | null
+  studio_lng: number | null
   instagram_handle: string | null
   pricing_notes: string | null
   site_data: SiteData | null
@@ -61,6 +68,7 @@ async function loadArtist(username: string): Promise<ArtistRecord | null> {
     .select(
       `
       id,
+      user_id,
       username,
       display_name,
       bio,
@@ -70,6 +78,8 @@ async function loadArtist(username: string): Promise<ArtistRecord | null> {
       deposit_amount,
       studio_name,
       studio_address,
+      studio_lat,
+      studio_lng,
       instagram_handle,
       pricing_notes,
       site_data,
@@ -153,8 +163,25 @@ export default async function ArtistPage({
   const { username } = await params
   const artist = await loadArtist(username)
 
-  if (!artist || !artist.onboarding_complete) {
+  if (!artist) {
     notFound()
+  }
+
+  // The page goes "live" (publicly visible) once onboarding is complete.
+  // Before then, only the artist who owns this profile may preview it — so
+  // the dashboard "View live page" link works during setup. Everyone else 404s.
+  let isOwnerPreview = false
+  if (!artist.onboarding_complete) {
+    const sessionClient = createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser()
+
+    if (user && user.id === artist.user_id) {
+      isOwnerPreview = true
+    } else {
+      notFound()
+    }
   }
 
   const site = artist.site_data ?? {}
@@ -184,6 +211,31 @@ export default async function ArtistPage({
     .from('artist_faqs')
     .select('id', { count: 'exact', head: true })
     .eq('artist_id', artist.id)
+
+  const { data: reviewRows } = await supabase
+    .from('reviews')
+    .select('id, rating, body, photo_url, client_name')
+    .eq('artist_id', artist.id)
+    .eq('approved', true)
+    .eq('flagged', false)
+    .not('rating', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  const reviews = (reviewRows ?? []).map((r) => {
+    const parts = r.client_name.trim().split(/\s+/)
+    const first = parts[0] ?? 'Client'
+    const lastInitial = parts.length > 1 ? `${parts[parts.length - 1]?.charAt(0)}.` : ''
+    return {
+      id: r.id,
+      rating: r.rating ?? 0,
+      body: r.body,
+      photoUrl: r.photo_url,
+      clientDisplayName: lastInitial ? `${first} ${lastInitial}` : first,
+    }
+  })
+
+  const fullyBooked = await isFullyBookedNext14Days(supabase, artist.id)
 
   const today = new Date().toISOString().slice(0, 10)
   const { data: credentialRows } = await supabase
@@ -230,6 +282,12 @@ export default async function ArtistPage({
       />
 
       <div id="top" className="min-h-screen bg-black text-white">
+        {isOwnerPreview && (
+          <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm text-center px-4 py-2.5">
+            Preview only — finish onboarding to publish this page publicly.
+          </div>
+        )}
+
         <PublicHeader
           artistName={name}
           username={artist.username}
@@ -265,7 +323,23 @@ export default async function ArtistPage({
 
         <ServicesSection services={services} accentColor={accent} pricingNotes={artist.pricing_notes} />
 
+        <ReviewsSection reviews={reviews} accentColor={accent} />
+
         <CredentialsSection credentials={publicCredentials} isLicensed={isLicensed} accentColor={accent} />
+
+        <StudioSection
+          studioName={artist.studio_name}
+          studioAddress={artist.studio_address}
+          lat={artist.studio_lat}
+          lng={artist.studio_lng}
+          accentColor={accent}
+        />
+
+        {fullyBooked && (
+          <div className="px-6 py-12 text-center bg-white/[0.02]">
+            <WaitlistButton artistId={artist.id} accentColor={accent} />
+          </div>
+        )}
 
         <BookingSection
           artistId={artist.id}

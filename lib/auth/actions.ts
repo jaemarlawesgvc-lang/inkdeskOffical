@@ -156,6 +156,12 @@ export async function resetPasswordAction(
   redirect('/login?message=password_updated')
 }
 
+export async function signOutAction(): Promise<void> {
+  const supabase = createSupabaseServerClient()
+  await supabase.auth.signOut()
+  redirect('/login')
+}
+
 export async function signInWithGoogle(_formData: FormData): Promise<void> {
   const supabase = createSupabaseServerClient()
 

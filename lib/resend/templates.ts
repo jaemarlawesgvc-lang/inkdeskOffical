@@ -235,7 +235,44 @@ ${locationLine}
 }
 
 // ---------------------------------------------------------------------------
-// 4. Deposit Receipt — to client (sent on payment_intent.succeeded)
+// 4. 7-Day Reminder — to client (sent one week before the appointment)
+// ---------------------------------------------------------------------------
+
+export function reminder7dayTemplate(data: BookingEmailData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.bookingDate)
+  const timeDisplay = formatTime(data.bookingTime)
+
+  const locationLine = data.studioAddress
+    ? `<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Location</td>
+       <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${esc(data.studioAddress)}</td></tr>`
+    : ''
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Your appointment is in one week</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, your appointment with <strong style="color:#ffffff;">${esc(data.artistName)}</strong> is coming up.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#262626;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Date</td>
+    <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
+${locationLine}
+</table>
+<p style="margin:0;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Need to cancel or reschedule? Please contact your artist as soon as possible so the slot can be offered to someone else.
+</p>
+${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;margin-top:24px;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View booking status</a>` : ''}`
+
+  return {
+    subject: `Your appointment with ${data.artistName} is in one week`,
+    html: layout(content),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5. Deposit Receipt — to client (sent on payment_intent.succeeded)
 // ---------------------------------------------------------------------------
 
 export interface DepositReceiptData {
@@ -292,7 +329,69 @@ ${cardLine}
 }
 
 // ---------------------------------------------------------------------------
-// 5. Aftercare — to client (sent 24h after appointment)
+// 6. Review Request — to client (sent 24h after a booking is completed)
+// ---------------------------------------------------------------------------
+
+export interface ReviewRequestData {
+  clientName: string
+  artistName: string
+  reviewUrl: string
+}
+
+export function reviewRequestTemplate(data: ReviewRequestData): {
+  subject: string
+  html: string
+} {
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">How was your experience?</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, we hope you&rsquo;re loving your new tattoo from <strong style="color:#ffffff;">${esc(data.artistName)}</strong>.
+  Would you mind leaving a quick review? It really helps other clients find great artists.
+</p>
+<a href="${data.reviewUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Leave a review</a>
+<p style="margin:24px 0 0;font-size:12px;color:#525252;line-height:1.5;">
+  This link expires in 14 days.
+</p>`
+
+  return {
+    subject: `How was your session with ${data.artistName}?`,
+    html: layout(content),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7. Cancellation Opening — to waitlisted/pending clients
+// ---------------------------------------------------------------------------
+
+export interface CancellationOpeningData {
+  clientName: string
+  artistName: string
+  openingDate: string
+  bookingUrl: string
+}
+
+export function cancellationOpeningTemplate(data: CancellationOpeningData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.openingDate)
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">An opening just appeared</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, an opening has appeared with <strong style="color:#ffffff;">${esc(data.artistName)}</strong> on
+  <strong style="color:#ffffff;">${dateDisplay}</strong>. Book now before it&rsquo;s taken.
+</p>
+<a href="${data.bookingUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Book this slot</a>`
+
+  return {
+    subject: `An opening with ${data.artistName} on ${dateDisplay}`,
+    html: layout(content),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 8. Aftercare — to client (sent 24h after appointment)
 // ---------------------------------------------------------------------------
 
 export function aftercareTemplate(data: BookingEmailData): {

@@ -4,8 +4,11 @@ import {
   bookingConfirmationTemplate,
   artistNotificationTemplate,
   reminder48hTemplate,
+  reminder7dayTemplate,
   aftercareTemplate,
   depositReceiptTemplate,
+  reviewRequestTemplate,
+  cancellationOpeningTemplate,
   type BookingEmailData,
 } from '@/lib/resend/templates'
 import { clientEnv } from '@/lib/env.client'
@@ -140,6 +143,31 @@ export async function sendReminder48h(
 }
 
 // ---------------------------------------------------------------------------
+// 3b. 7-Day Reminder → client
+// ---------------------------------------------------------------------------
+
+export async function sendReminder7day(
+  supabase: SupabaseClient,
+  booking: BookingWithArtist,
+): Promise<SendResult> {
+  const data = buildEmailData(booking, {
+    includeDashboardUrl: false,
+    includeStatusUrl: true,
+  })
+  const { subject, html } = reminder7dayTemplate(data)
+
+  return sendEmail({
+    to: booking.clientEmail,
+    subject,
+    html,
+    emailType: 'reminder_7day',
+    bookingId: booking.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // 4. Aftercare → client (24h after appointment)
 // ---------------------------------------------------------------------------
 
@@ -194,6 +222,64 @@ export async function sendDepositReceipt(
     html,
     emailType: 'deposit_receipt',
     bookingId: booking.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 6. Review Request → client (sent 24h after booking completion)
+// ---------------------------------------------------------------------------
+
+export async function sendReviewRequest(
+  supabase: SupabaseClient,
+  params: { bookingId: string; clientName: string; clientEmail: string; artistName: string; reviewToken: string },
+): Promise<SendResult> {
+  const { subject, html } = reviewRequestTemplate({
+    clientName: params.clientName,
+    artistName: params.artistName,
+    reviewUrl: `${clientEnv.appUrl}/review?token=${params.reviewToken}`,
+  })
+
+  return sendEmail({
+    to: params.clientEmail,
+    subject,
+    html,
+    emailType: 'review_request',
+    bookingId: params.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 7. Cancellation Opening → pending/waitlisted client
+// ---------------------------------------------------------------------------
+
+export async function sendCancellationOpening(
+  supabase: SupabaseClient,
+  params: {
+    bookingId: string | null
+    clientName: string
+    clientEmail: string
+    artistName: string
+    artistUsername: string
+    openingDate: string
+  },
+): Promise<SendResult> {
+  const { subject, html } = cancellationOpeningTemplate({
+    clientName: params.clientName,
+    artistName: params.artistName,
+    openingDate: params.openingDate,
+    bookingUrl: `${clientEnv.appUrl}/${params.artistUsername}?date=${params.openingDate}`,
+  })
+
+  return sendEmail({
+    to: params.clientEmail,
+    subject,
+    html,
+    emailType: 'cancellation_opening',
+    bookingId: params.bookingId,
     userId: null,
     supabase,
   })

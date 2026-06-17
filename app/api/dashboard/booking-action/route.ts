@@ -1,6 +1,7 @@
 import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
+import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -89,6 +90,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unknown action' }, { status: 422 })
   }
 
+  // Capture the booking date before updating, for the cancellation-recovery notification.
+  const { data: bookingBeforeUpdate } = await supabase
+    .from('bookings')
+    .select('booking_date')
+    .eq('id', bookingId)
+    .eq('artist_id', artistId)
+    .single()
+
   const { error } = await supabase
     .from('bookings')
     .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -96,6 +105,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq('artist_id', artistId)
 
   if (error) return NextResponse.json({ error: 'Update failed' }, { status: 500 })
+
+  if (action === 'cancel' && bookingBeforeUpdate) {
+    // Fire-and-forget: notify pending/waitlisted clients of the freed-up slot.
+    // Uses the admin client because email_logs writes require service role.
+    const adminClient = createSupabaseAdminClient()
+    const { data: artistDetails } = await adminClient
+      .from('artists')
+      .select('display_name, username')
+      .eq('id', artistId)
+      .single()
+
+    if (artistDetails) {
+      void notifyCancellationOpening(adminClient, {
+        artistId,
+        artistName: artistDetails.display_name ?? artistDetails.username,
+        artistUsername: artistDetails.username,
+        cancelledDate: bookingBeforeUpdate.booking_date,
+      })
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }

@@ -100,6 +100,14 @@ const schema = z.object({
     .optional()
     .or(z.literal('').transform(() => undefined)),
 
+  // ── Google Maps — OPTIONAL ──────────────────────────────────────────────────
+  // Per spec: the studio map section is hidden entirely if this is absent.
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z
+    .string()
+    .min(1)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+
   // ── Application ─────────────────────────────────────────────────────────────
   NEXT_PUBLIC_APP_URL: z
     .string({ required_error: 'NEXT_PUBLIC_APP_URL is required' })

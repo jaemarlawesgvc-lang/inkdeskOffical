@@ -25,6 +25,9 @@ export type EmailType =
   | 'reminder_48h'
   | 'aftercare'
   | 'deposit_receipt'
+  | 'reminder_7day'
+  | 'review_request'
+  | 'cancellation_opening'
 
 export interface SendEmailParams {
   to: string

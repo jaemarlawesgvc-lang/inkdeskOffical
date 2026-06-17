@@ -200,6 +200,53 @@ export async function validateHold(
 }
 
 // ---------------------------------------------------------------------------
+// isFullyBookedNext14Days — used to show the "Join Waitlist" prompt.
+//
+// Simplified single-slot-per-day model: a day counts as "open" if the artist
+// has a weekly availability window for that day-of-week and it isn't in
+// blocked_dates. The artist is considered fully booked if every open day in
+// the next 14 days already has a confirmed/deposit_paid booking.
+// ---------------------------------------------------------------------------
+
+export async function isFullyBookedNext14Days(
+  supabase: SupabaseClient,
+  artistId: string,
+): Promise<boolean> {
+  const today = new Date()
+  const dates: string[] = []
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today)
+    d.setUTCDate(d.getUTCDate() + i)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+
+  const [{ data: availability }, { data: blocked }, { data: booked }] = await Promise.all([
+    supabase.from('artist_availability').select('day_of_week').eq('artist_id', artistId),
+    supabase.from('blocked_dates').select('blocked_date').eq('artist_id', artistId).in('blocked_date', dates),
+    supabase
+      .from('bookings')
+      .select('booking_date')
+      .eq('artist_id', artistId)
+      .in('status', ['confirmed', 'deposit_paid'])
+      .is('deleted_at', null)
+      .in('booking_date', dates),
+  ])
+
+  const availableDaysOfWeek = new Set((availability ?? []).map((a) => a.day_of_week))
+  const blockedDates = new Set((blocked ?? []).map((b) => b.blocked_date))
+  const bookedDates = new Set((booked ?? []).map((b) => b.booking_date))
+
+  const openDays = dates.filter((date) => {
+    const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay()
+    return availableDaysOfWeek.has(dayOfWeek) && !blockedDates.has(date)
+  })
+
+  if (openDays.length === 0) return false // no recurring availability set — don't claim "fully booked"
+
+  return openDays.every((date) => bookedDates.has(date))
+}
+
+// ---------------------------------------------------------------------------
 // generateAccessToken — crypto-random token for client booking status lookup
 // ---------------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useRef, useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Plan } from '@/lib/stripe/plans'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,7 +23,9 @@ interface Booking {
   description: string | null
   reference_images: string[] | null
   stripe_payment_status: string | null
+  completed_photo_url: string | null
   created_at: string
+  review: { id: string; rating: number | null; flagged: boolean } | null
 }
 
 interface BookingsTableProps {
@@ -137,6 +140,54 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
     setSavingNoteId(bookingId)
     await performAction(bookingId, 'add_note', { note })
     setSavingNoteId(null)
+  }
+
+  // ── Flag / unflag review ──
+  const [flaggingId, setFlaggingId] = useState<string | null>(null)
+  const supabase = getSupabaseBrowserClient()
+
+  const toggleFlagReview = async (reviewId: string, nextFlagged: boolean) => {
+    setFlaggingId(reviewId)
+    setActionError(null)
+    const { error } = await supabase
+      .from('reviews')
+      .update({ flagged: nextFlagged, flagged_reason: nextFlagged ? 'Flagged by artist' : null })
+      .eq('id', reviewId)
+    if (error) setActionError(error.message)
+    else startTransition(() => router.refresh())
+    setFlaggingId(null)
+  }
+
+  // ── Completed-work photo upload ──
+  const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null)
+  const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  const uploadCompletedPhoto = async (bookingId: string, file: File) => {
+    setUploadingPhotoId(bookingId)
+    setActionError(null)
+
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('completed-work')
+      .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type })
+
+    if (uploadError) {
+      setActionError(uploadError.message)
+      setUploadingPhotoId(null)
+      return
+    }
+
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({ completed_photo_url: path, updated_at: new Date().toISOString() })
+      .eq('id', bookingId)
+      .eq('artist_id', artistId)
+
+    if (updateError) setActionError(updateError.message)
+    else startTransition(() => router.refresh())
+    setUploadingPhotoId(null)
   }
 
   return (
@@ -321,6 +372,64 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                           </div>
                         </div>
                       )}
+
+                      {/* Completed-work photo (only once marked completed) */}
+                      {booking.status === 'completed' && (
+                        <div>
+                          <p className="text-xs text-white/30 uppercase tracking-wider mb-2">Completed-work photo</p>
+                          {booking.completed_photo_url ? (
+                            <p className="text-emerald-400 text-sm">Photo uploaded ✓</p>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => photoInputRefs.current[booking.id]?.click()}
+                                disabled={uploadingPhotoId === booking.id}
+                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+                              >
+                                {uploadingPhotoId === booking.id ? 'Uploading…' : 'Upload photo'}
+                              </button>
+                              <input
+                                ref={(el) => { photoInputRefs.current[booking.id] = el }}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) void uploadCompletedPhoto(booking.id, file)
+                                  e.target.value = ''
+                                }}
+                              />
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Review moderation */}
+                      {booking.review && booking.review.rating !== null && (() => {
+                        const review = booking.review
+                        return (
+                        <div>
+                          <p className="text-xs text-white/30 uppercase tracking-wider mb-2">Client review</p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-white text-sm">{review.rating} / 5</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleFlagReview(review.id, !review.flagged)}
+                              disabled={flaggingId === review.id}
+                              className={[
+                                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40',
+                                review.flagged
+                                  ? 'bg-white/10 text-white/60 hover:bg-white/20'
+                                  : 'bg-red-500/15 text-red-400 hover:bg-red-500/25',
+                              ].join(' ')}
+                            >
+                              {review.flagged ? 'Unflag review' : 'Flag review'}
+                            </button>
+                          </div>
+                        </div>
+                        )
+                      })()}
 
                       {/* Note field */}
                       <div>

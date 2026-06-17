@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Plan } from '@/lib/stripe/plans'
 import { PLAN_DISPLAY } from '@/lib/stripe/plans'
 import { STYLE_TAG_OPTIONS } from '@/lib/validations/onboarding'
+import { StudioLocationPicker } from '@/components/dashboard/StudioLocationPicker'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,6 +24,8 @@ interface SettingsData {
   instagramHandle: string
   studioName: string
   studioAddress: string
+  studioLat: number | null
+  studioLng: number | null
   hourlyRate: number | null
   depositAmount: number | null
   depositRequired: boolean
@@ -212,7 +215,17 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
           <input id="studioName" type="text" value={data.studioName} onChange={(e) => set('studioName', e.target.value)} className={inputCls} placeholder="Studio name (optional)" />
         </Field>
         <Field label="Studio address" id="studioAddress">
-          <input id="studioAddress" type="text" value={data.studioAddress} onChange={(e) => set('studioAddress', e.target.value)} className={inputCls} placeholder="123 High Street, London" />
+          <StudioLocationPicker
+            address={data.studioAddress}
+            onAddressChange={(address) => set('studioAddress', address)}
+            onCoordsChange={(lat, lng) => {
+              set('studioLat', lat)
+              set('studioLng', lng)
+            }}
+          />
+          <p className="text-xs text-white/30 mt-1">
+            Search and select your studio to show a map on your public page.
+          </p>
         </Field>
       </Section>
 

@@ -51,7 +51,13 @@ export default async function BookingsPage() {
       description,
       reference_images,
       stripe_payment_status,
-      created_at
+      completed_photo_url,
+      created_at,
+      reviews (
+        id,
+        rating,
+        flagged
+      )
     `,
     )
     .eq('artist_id', artist.id)
@@ -60,6 +66,12 @@ export default async function BookingsPage() {
     .order('booking_time', { ascending: false })
     .limit(200)
 
+  const normalizedBookings = (bookings ?? []).map((b) => {
+    const reviewRel = b.reviews as unknown as { id: string; rating: number | null; flagged: boolean }[] | { id: string; rating: number | null; flagged: boolean } | null
+    const review = Array.isArray(reviewRel) ? reviewRel[0] ?? null : reviewRel
+    return { ...b, review }
+  })
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
@@ -67,7 +79,7 @@ export default async function BookingsPage() {
         <p className="text-white/40 text-sm mt-0.5">{bookings?.length ?? 0} total</p>
       </div>
       <BookingsTable
-        bookings={bookings ?? []}
+        bookings={normalizedBookings}
         artistId={artist.id}
         plan={plan}
       />

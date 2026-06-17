@@ -22,6 +22,8 @@ export const clientEnv = {
   appName:              process.env.NEXT_PUBLIC_APP_NAME                as string,
   // Optional — undefined when Sentry is not configured (e.g. local dev)
   sentryDsn:            process.env.NEXT_PUBLIC_SENTRY_DSN,
+  // Optional — undefined hides the studio map section entirely
+  googleMapsApiKey:     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
 } as const
 
 export type ClientEnv = typeof clientEnv
