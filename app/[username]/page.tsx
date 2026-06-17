@@ -17,8 +17,11 @@ import { BookingSection } from '@/components/public/BookingSection'
 import { Footer } from '@/components/public/Footer'
 import { JsonLd } from '@/components/public/JsonLd'
 
-// Public pages are served fresh; revalidate hourly to balance freshness and cost.
-export const revalidate = 3600
+// Always render from live DB state. ISR caching previously meant a 404 rendered
+// before onboarding completed could be served stale for up to an hour after the
+// page went live. Booking pages are low-traffic and must reflect the current
+// published state immediately, so we render dynamically.
+export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
 // Types

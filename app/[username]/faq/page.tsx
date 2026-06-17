@@ -6,7 +6,7 @@ import { PublicHeader } from '@/components/public/PublicHeader'
 import { FaqAccordion } from '@/components/public/FaqAccordion'
 import { Footer } from '@/components/public/Footer'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 interface ArtistFaqRecord {
   id: string
