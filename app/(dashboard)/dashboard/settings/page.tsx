@@ -104,6 +104,7 @@ export default async function SettingsPage() {
       <AccountSection
         userEmail={user.email ?? ''}
         lastSignIn={user.last_sign_in_at ?? null}
+        username={artist.username}
       />
 
       <SettingsForm

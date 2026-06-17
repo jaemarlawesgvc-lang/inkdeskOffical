@@ -2,7 +2,7 @@
 // Shared layout wrapper — dark theme, responsive, InkDesk branding
 // ---------------------------------------------------------------------------
 
-function layout(content: string): string {
+function layout(content: string, artistEmail?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -28,6 +28,7 @@ ${content}
 &copy; ${new Date().getFullYear()} InkDesk. All rights reserved.<br />
 You received this email because of a booking on InkDesk.
 </p>
+${artistEmail ? `<p style="margin:8px 0 0;font-size:12px;color:#525252;line-height:1.5;">Having a problem? <a href="mailto:${artistEmail}" style="color:#a3a3a3;text-decoration:underline;">Contact your artist</a></p>` : ''}
 </td></tr>
 </table>
 </td></tr>
@@ -85,6 +86,7 @@ export interface BookingEmailData {
   statusUrl: string | null
   consentFormUrl: string | null
   aftercareGuideUrl: string | null
+  artistEmail: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -136,7 +138,7 @@ ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padd
 
   return {
     subject: `Your booking with ${data.artistName} is confirmed`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -185,7 +187,7 @@ ${descriptionLine}
 
   return {
     subject: `New booking from ${data.clientName}`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -230,7 +232,7 @@ ${locationLine}
 
   return {
     subject: `Your tattoo appointment is tomorrow — ${data.artistName}`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -267,7 +269,7 @@ ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;marg
 
   return {
     subject: `Your appointment with ${data.artistName} is in one week`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -324,7 +326,7 @@ ${cardLine}
 
   return {
     subject: `Deposit receipt — ${data.artistName}`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -355,7 +357,7 @@ export function reviewRequestTemplate(data: ReviewRequestData): {
 
   return {
     subject: `How was your session with ${data.artistName}?`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -386,7 +388,7 @@ export function cancellationOpeningTemplate(data: CancellationOpeningData): {
 
   return {
     subject: `An opening with ${data.artistName} on ${dateDisplay}`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }
 
@@ -448,6 +450,6 @@ ${data.aftercareGuideUrl ? `<a href="${data.aftercareGuideUrl}" style="display:i
 
   return {
     subject: `Aftercare instructions from ${data.artistName}`,
-    html: layout(content),
+    html: layout(content, (data as any).artistEmail ?? undefined),
   }
 }

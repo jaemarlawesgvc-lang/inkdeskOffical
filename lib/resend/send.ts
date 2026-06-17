@@ -63,6 +63,7 @@ function buildEmailData(
     aftercareGuideUrl: opts.includeAftercareGuideUrl
       ? `${appUrl}/api/aftercare-guide?artist_id=${booking.artistId}`
       : null,
+    artistEmail: booking.artistEmail,
   }
 }
 

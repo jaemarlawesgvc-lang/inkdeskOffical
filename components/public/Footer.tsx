@@ -3,9 +3,10 @@ import Link from 'next/link'
 interface FooterProps {
   artistName: string
   artistId?: string
+  artistEmail?: string
 }
 
-export function Footer({ artistName, artistId }: FooterProps) {
+export function Footer({ artistName, artistId, artistEmail }: FooterProps) {
   const year = new Date().getFullYear()
 
   return (
@@ -29,6 +30,19 @@ export function Footer({ artistName, artistId }: FooterProps) {
             >
               Download Consent Form
             </a>
+          </div>
+        )}
+        {artistEmail && (
+          <div className="text-center">
+            <p className="text-white/30 text-xs">
+              Having a problem?{' '}
+              <a
+                href={`mailto:${artistEmail}`}
+                className="text-white/50 hover:text-white underline underline-offset-2 transition-colors"
+              >
+                Contact {artistName}
+              </a>
+            </p>
           </div>
         )}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">

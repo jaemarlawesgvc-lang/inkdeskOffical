@@ -28,6 +28,7 @@ export type EmailType =
   | 'reminder_7day'
   | 'review_request'
   | 'cancellation_opening'
+  | 'new_message_notification'
 
 export interface SendEmailParams {
   to: string

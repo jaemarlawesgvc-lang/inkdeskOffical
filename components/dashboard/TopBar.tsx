@@ -1,6 +1,7 @@
 import type { Plan } from '@/lib/stripe/plans'
 import { PLAN_DISPLAY } from '@/lib/stripe/plans'
 import { signOutAction } from '@/lib/auth/actions'
+import { SupportModal } from '@/components/dashboard/SupportModal'
 
 interface TopBarProps {
   displayName: string
@@ -28,6 +29,7 @@ export function TopBar({ displayName, plan }: TopBarProps) {
 
       {/* Right: plan badge + avatar */}
       <div className="flex items-center gap-3">
+        <SupportModal />
         <span
           className={[
             'hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',

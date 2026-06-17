@@ -5,9 +5,10 @@ import { useState } from 'react'
 interface AccountSectionProps {
   userEmail: string
   lastSignIn: string | null
+  username: string
 }
 
-export function AccountSection({ userEmail, lastSignIn }: AccountSectionProps) {
+export function AccountSection({ userEmail, lastSignIn, username }: AccountSectionProps) {
   const [newEmail, setNewEmail] = useState('')
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [emailError, setEmailError] = useState<string | null>(null)
@@ -21,6 +22,13 @@ export function AccountSection({ userEmail, lastSignIn }: AccountSectionProps) {
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [showPasswords, setShowPasswords] = useState(false)
+
+  const [newUsername, setNewUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteStatus, setDeleteStatus] = useState<'idle' | 'deleting'>('idle')
 
   const handleResetPassword = async () => {
     setResetStatus('sending')
@@ -97,6 +105,54 @@ export function AccountSection({ userEmail, lastSignIn }: AccountSectionProps) {
     } catch (err) {
       setEmailStatus('error')
       setEmailError(err instanceof Error ? err.message : 'Failed to update email')
+    }
+  }
+
+  const handleChangeUsername = async () => {
+    const slug = newUsername.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')
+    if (!slug || slug.length < 3) {
+      setUsernameError('Username must be at least 3 characters (letters, numbers, hyphens)')
+      setUsernameStatus('error')
+      return
+    }
+
+    setUsernameStatus('sending')
+    setUsernameError(null)
+    try {
+      const res = await fetch('/api/dashboard/change-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newUsername: slug }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Failed to update username')
+      setUsernameStatus('sent')
+      setNewUsername('')
+      setTimeout(() => {
+        setUsernameStatus('idle')
+        window.location.reload()
+      }, 2000)
+    } catch (err) {
+      setUsernameStatus('error')
+      setUsernameError(err instanceof Error ? err.message : 'Failed to update username')
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return
+    setDeleteStatus('deleting')
+    try {
+      const res = await fetch('/api/dashboard/delete-account', { method: 'POST' })
+      if (res.ok) {
+        window.location.href = '/login?message=account_deleted'
+      } else {
+        const json = (await res.json()) as { error?: string }
+        alert(json.error ?? 'Failed to delete account')
+        setDeleteStatus('idle')
+      }
+    } catch {
+      alert('Failed to delete account')
+      setDeleteStatus('idle')
     }
   }
 
@@ -325,6 +381,94 @@ export function AccountSection({ userEmail, lastSignIn }: AccountSectionProps) {
             Confirmation sent — check both your old and new email inboxes.
           </p>
         )}
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="border-t border-white/[0.06]" />
+
+      {/* ── Change Username ── */}
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-medium text-white">Change username</p>
+          <p className="text-xs text-white/40 mt-0.5">
+            Your public page URL is <span className="text-white/60 font-mono">/{username}</span>. Changing this will break existing links.
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={newUsername}
+            onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+            className={`${inputCls} flex-1`}
+            placeholder="new-username"
+            maxLength={30}
+          />
+          <button
+            type="button"
+            onClick={() => void handleChangeUsername()}
+            disabled={usernameStatus === 'sending' || !newUsername}
+            className={[
+              'px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all duration-200',
+              usernameStatus === 'sending'
+                ? 'bg-white/10 text-white/40 cursor-not-allowed'
+                : usernameStatus === 'sent'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed',
+            ].join(' ')}
+          >
+            {usernameStatus === 'sending'
+              ? 'Updating…'
+              : usernameStatus === 'sent'
+                ? '✓ Updated'
+                : 'Update'}
+          </button>
+        </div>
+
+        {usernameError && (
+          <p className="text-red-400 text-xs">{usernameError}</p>
+        )}
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="border-t border-red-500/20" />
+
+      {/* ── Danger Zone: Delete Account ── */}
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-medium text-red-400 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+            </svg>
+            Danger Zone
+          </p>
+          <p className="text-xs text-white/40 mt-0.5">
+            Permanently delete your account, public page, and all associated data. This action cannot be undone.
+          </p>
+        </div>
+
+        <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4 space-y-3">
+          <p className="text-xs text-white/50">
+            Type <span className="font-mono font-bold text-red-400">DELETE</span> to confirm:
+          </p>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              className={`${inputCls} flex-1 border-red-500/30 focus:border-red-500/60`}
+              placeholder="Type DELETE"
+            />
+            <button
+              type="button"
+              onClick={() => void handleDeleteAccount()}
+              disabled={deleteConfirm !== 'DELETE' || deleteStatus === 'deleting'}
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {deleteStatus === 'deleting' ? 'Deleting…' : 'Delete Account'}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   )

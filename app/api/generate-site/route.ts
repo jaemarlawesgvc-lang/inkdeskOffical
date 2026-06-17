@@ -132,6 +132,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .update({
         site_data: siteData,
         site_generated: true,
+        onboarding_complete: true,
         updated_at: new Date().toISOString(),
       })
       .eq('id', artist.id)

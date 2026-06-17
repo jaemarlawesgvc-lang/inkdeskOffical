@@ -53,6 +53,7 @@ interface ArtistRecord {
   site_data: SiteData | null
   onboarding_complete: boolean
   portfolio_images: { public_url: string; caption: string | null; display_order: number }[]
+  profiles: { email: string } | null
 }
 
 const DEFAULT_ACCENT = '#d4af37' // gold
@@ -73,6 +74,9 @@ async function loadArtist(username: string): Promise<ArtistRecord | null> {
         public_url,
         caption,
         display_order
+      ),
+      profiles (
+        email
       )
     `,
     )
@@ -337,7 +341,7 @@ export default async function ArtistPage({
           accentColor={accent}
         />
 
-        <Footer artistName={name} artistId={artist.id} />
+        <Footer artistName={name} artistId={artist.id} artistEmail={artist.profiles?.email ?? undefined} />
       </div>
     </>
   )
