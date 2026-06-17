@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
 
-export async function GET(request: Request) {
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = request.nextUrl
     const query = searchParams.get('q')?.toLowerCase() ?? ''
     const style = searchParams.get('style') ?? ''
     const priceTier = searchParams.get('priceTier') ?? ''
