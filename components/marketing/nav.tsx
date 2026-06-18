@@ -5,10 +5,9 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 
 const NAV_LINKS = [
-  { label: 'Explore Artists', href: '/artists' },
-  { label: 'Features', href: '/features' },
-  { label: 'Pricing',  href: '/pricing'  },
-  { label: 'About',    href: '/about'    },
+  { label: 'Portfolio', href: '#portfolio' },
+  { label: 'About Studio', href: '#about' },
+  { label: 'Booking Inquiry', href: '#booking' },
 ] as const
 
 function MenuIcon() {
@@ -60,9 +59,9 @@ export function Nav() {
           {/* ── Logo ── */}
           <Link
             href="/"
-            className="font-display text-xl font-bold text-parchment-100 shrink-0"
+            className="font-display text-xl font-extrabold tracking-widest text-parchment-100 shrink-0"
           >
-            Ink<span className="text-gold-500">Desk</span>
+            IDEAL<span className="text-gold-500">.</span>
           </Link>
 
           {/* ── Desktop nav ── */}

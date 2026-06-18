@@ -22,13 +22,12 @@ export function Footer() {
           <div className="col-span-2">
             <Link
               href="/"
-              className="font-display text-xl font-bold text-parchment-100"
+              className="font-display text-xl font-extrabold tracking-widest text-parchment-100"
             >
-              Ink<span className="text-gold-500">Desk</span>
+              IDEAL<span className="text-gold-500">.</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-ink-400 leading-relaxed">
-              Portfolio websites and online booking for independent tattoo
-              artists. Powered by AI. Built in the UK.
+              Bespoke fine-line and custom blackwork tattoo creations. Designed for a lifetime, alignment to anatomy. Private studio in London.
             </p>
           </div>
 
@@ -74,10 +73,10 @@ export function Footer() {
         {/* ── Bottom bar ── */}
         <div className="mt-14 pt-8 border-t border-ink-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-ink-500">
-            © {new Date().getFullYear()} InkDesk Ltd. All rights reserved.
+            © {new Date().getFullYear()} Ideal Tattoo Studio. All rights reserved.
           </p>
           <p className="text-xs text-ink-600">
-            Registered in England and Wales.
+            London, United Kingdom.
           </p>
         </div>
       </div>
