@@ -2,10 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { Plan } from '@/lib/stripe/plans'
 import { PLAN_DISPLAY } from '@/lib/stripe/plans'
 import { STYLE_TAG_OPTIONS } from '@/lib/validations/onboarding'
 import { StudioLocationPicker } from '@/components/dashboard/StudioLocationPicker'
+import { UpgradeModal } from '@/components/dashboard/UpgradeModal'
+import { SUBSCRIPTION_TRIAL_DAYS } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,6 +87,7 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [billingLoading, setBillingLoading] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const set = <K extends keyof SettingsData>(key: K, value: SettingsData[K]) => {
@@ -333,7 +337,7 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
       </Section>
 
       {/* ── Billing ── */}
-      <Section id="billing" title="Billing" description="Manage your subscription">
+      <Section id="billing" title="Billing" description="Manage your subscription and payment details">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-white text-sm font-medium">Current plan</p>
@@ -341,30 +345,43 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
           </div>
           <span className={[
             'px-3 py-1 rounded-full text-sm font-semibold',
-            plan === 'free' ? 'bg-white/10 text-white/60' : plan === 'pro' ? 'bg-amber-500/20 text-amber-400' : 'bg-violet-500/20 text-violet-400',
+            plan === 'free'
+              ? 'bg-white/10 text-white/60'
+              : plan === 'pro'
+                ? 'bg-gold-500/15 text-gold-400 border border-gold-500/30'
+                : 'bg-violet-500/20 text-violet-400',
           ].join(' ')}>
             {PLAN_DISPLAY[plan].name} — {PLAN_DISPLAY[plan].price}
           </span>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {plan === 'free' && (
-            <a
-              href="/api/stripe/create-checkout"
-              onClick={(e) => { e.preventDefault(); void (async () => { const res = await fetch('/api/stripe/create-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: 'pro' }) }); const j = await res.json() as { url?: string }; if (j.url) window.location.href = j.url })() }}
-              className="px-4 py-2.5 bg-white text-black text-sm font-semibold rounded-lg hover:bg-white/90 transition-colors cursor-pointer"
-            >
-              Upgrade to Pro
-            </a>
-          )}
-          {plan !== 'free' && (
-            <button
-              type="button"
-              onClick={() => void handleBillingPortal()}
-              disabled={billingLoading}
-              className="px-4 py-2.5 bg-white/10 text-white text-sm font-semibold rounded-lg hover:bg-white/20 disabled:opacity-40 transition-colors"
-            >
-              {billingLoading ? 'Opening…' : 'Manage billing'}
-            </button>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          {plan === 'free' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setUpgradeOpen(true)}
+                className="px-4 py-2.5 bg-gold-500 text-ink-950 text-sm font-semibold rounded-lg shadow-gold hover:bg-gold-400 active:bg-gold-600 transition-colors"
+              >
+                Start {SUBSCRIPTION_TRIAL_DAYS}-day free trial
+              </button>
+              <Link href="/dashboard/settings/billing" className="text-sm text-white/50 hover:text-white transition-colors">
+                View billing details →
+              </Link>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleBillingPortal()}
+                disabled={billingLoading}
+                className="px-4 py-2.5 bg-white/10 text-white text-sm font-semibold rounded-lg hover:bg-white/20 disabled:opacity-40 transition-colors"
+              >
+                {billingLoading ? 'Opening…' : 'Manage billing'}
+              </button>
+              <Link href="/dashboard/settings/billing" className="text-sm text-white/50 hover:text-white transition-colors">
+                Billing details →
+              </Link>
+            </>
           )}
         </div>
       </Section>
@@ -443,6 +460,8 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
           </button>
         </div>
       </Section>
+
+      <UpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </div>
   )
 }

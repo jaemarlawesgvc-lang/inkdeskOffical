@@ -1,82 +1,81 @@
 'use client'
 
+import { cn } from '@/lib/utils'
+
 interface ProgressBarProps {
   currentStep: number
   totalSteps: number
   labels: string[]
 }
 
+/**
+ * Compact horizontal stepper used at the top of the onboarding flow on
+ * smaller screens (the desktop layout uses the vertical rail in the wizard).
+ *
+ * Premium treatment: a thin ink track with a gold fill that advances with the
+ * step, gold-filled completed nodes with a tick, and a gold-ringed current node.
+ */
 export function ProgressBar({ currentStep, totalSteps, labels }: ProgressBarProps) {
+  const fillPct = ((currentStep - 1) / (totalSteps - 1)) * 100
+
   return (
     <div className="w-full" role="navigation" aria-label="Onboarding progress">
-      {/* Step labels */}
-      <div className="flex justify-between mb-2">
-        {labels.map((label, index) => {
-          const stepNumber = index + 1
-          const isCompleted = stepNumber < currentStep
-          const isCurrent = stepNumber === currentStep
-
-          return (
-            <div
-              key={label}
-              className="flex flex-col items-center"
-              style={{ width: `${100 / totalSteps}%` }}
-            >
-              <div
-                className={[
-                  'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors duration-200',
-                  isCompleted
-                    ? 'bg-white text-black'
-                    : isCurrent
-                      ? 'bg-white/20 text-white ring-2 ring-white'
-                      : 'bg-white/10 text-white/40',
-                ].join(' ')}
-                aria-current={isCurrent ? 'step' : undefined}
-              >
-                {isCompleted ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="w-4 h-4"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  stepNumber
-                )}
-              </div>
-              <span
-                className={[
-                  'mt-1 text-xs text-center hidden sm:block transition-colors duration-200',
-                  isCurrent ? 'text-white font-medium' : 'text-white/40',
-                ].join(' ')}
-              >
-                {label}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Progress track */}
-      <div className="relative mt-1">
-        <div className="h-1 bg-white/10 rounded-full" />
+      <div className="relative">
+        {/* Track */}
+        <div className="absolute left-0 right-0 top-4 h-px bg-ink-800" aria-hidden="true" />
+        {/* Gold fill */}
         <div
-          className="absolute top-0 left-0 h-1 bg-white rounded-full transition-all duration-500 ease-out"
-          style={{
-            width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
-          }}
+          className="absolute left-0 top-4 h-px bg-gradient-to-r from-gold-600 to-gold-400 transition-all duration-500 ease-out"
+          style={{ width: `${fillPct}%` }}
           role="progressbar"
           aria-valuenow={currentStep}
           aria-valuemin={1}
           aria-valuemax={totalSteps}
         />
+
+        {/* Nodes */}
+        <ol className="relative flex justify-between">
+          {labels.map((label, index) => {
+            const step = index + 1
+            const completed = step < currentStep
+            const current = step === currentStep
+
+            return (
+              <li key={label} className="flex flex-col items-center gap-2">
+                <span
+                  className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300',
+                    completed && 'bg-gold-500 text-ink-950 shadow-gold',
+                    current &&
+                      'bg-ink-900 text-gold-400 ring-2 ring-gold-500 ring-offset-2 ring-offset-ink-950',
+                    !completed && !current && 'bg-ink-900 text-ink-500 ring-1 ring-ink-700',
+                  )}
+                  aria-current={current ? 'step' : undefined}
+                >
+                  {completed ? (
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : (
+                    step
+                  )}
+                </span>
+                <span
+                  className={cn(
+                    'hidden text-[0.7rem] font-medium tracking-wide sm:block',
+                    current ? 'text-parchment-200' : 'text-ink-500',
+                  )}
+                >
+                  {label}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
       </div>
     </div>
   )

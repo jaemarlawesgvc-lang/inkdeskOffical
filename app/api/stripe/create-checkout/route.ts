@@ -8,6 +8,7 @@ import {
   STRIPE_PRICE_IDS,
 } from '@/lib/stripe/server'
 import { clientEnv } from '@/lib/env.client'
+import { SUBSCRIPTION_TRIAL_DAYS } from '@/lib/constants'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createSupabaseServerClient()
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       userId: user.id,
       successUrl: `${appUrl}/dashboard/settings/billing?checkout=success`,
       cancelUrl: `${appUrl}/dashboard/settings/billing?checkout=cancelled`,
+      trialPeriodDays: SUBSCRIPTION_TRIAL_DAYS,
     })
 
     return NextResponse.json({ url: checkoutUrl })

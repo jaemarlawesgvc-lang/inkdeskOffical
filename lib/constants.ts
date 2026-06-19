@@ -291,6 +291,19 @@ export const STRIPE_PAYMENT_TYPE = {
   SUBSCRIPTION: 'subscription',
 } as const
 
+/**
+ * Free-trial length (days) granted on every new paid subscription checkout.
+ *
+ * Surfaced as the headline promise on the Pro upgrade ("30 days free").
+ * Stripe is told about this via `trial_period_days` on the Checkout session,
+ * so the card is collected but not charged until the trial ends. The webhook
+ * maps Stripe's `trialing` status → our `trialing` plan state, and
+ * `resolveActivePlan` already grants paid features during the trial.
+ *
+ * Set to 0 to disable trials entirely (copy in the upgrade UI keys off this).
+ */
+export const SUBSCRIPTION_TRIAL_DAYS = 30
+
 // ─── Cron Paths ───────────────────────────────────────────────────────────────
 
 /** API paths that Vercel Cron will POST to. Must match vercel.json. */

@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { PortfolioImageMeta } from '@/lib/validations/onboarding'
+import { StepIntro, WizardNav, Hint } from '@/components/onboarding/ui'
 
 interface UploadItem {
   id: string
@@ -183,16 +185,16 @@ export function Step3Portfolio({
   }
 
   const uploadingCount = items.filter((item) => item.status === 'uploading').length
+  const doneCount = items.filter((item) => item.status === 'done').length
+  const busy = isSaving || uploadingCount > 0
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold text-parchment-100 mb-4">
-        Portfolio images
-      </h2>
-      <p className="text-sm text-ink-400 mb-6">
-        Upload a few of your best pieces to showcase your style. You can skip
-        this step and add images later. Minimum 3 images recommended.
-      </p>
+    <div className="space-y-8">
+      <StepIntro
+        eyebrow="Step 3 · Portfolio"
+        title="Show your best work"
+        description="Upload a handful of standout pieces — three or more is ideal. Drag to reorder; you can always add more later."
+      />
 
       {/* Drop zone */}
       <div
@@ -207,15 +209,22 @@ export function Step3Portfolio({
           void handleFiles(e.dataTransfer.files)
         }}
         onClick={() => fileInputRef.current?.click()}
-        className={[
-          'mb-6 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors duration-150',
-          isDraggingOver ? 'border-white bg-white/5' : 'border-ink-700 hover:border-ink-500',
-        ].join(' ')}
+        className={cn(
+          'group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-12 text-center transition-all duration-200',
+          isDraggingOver
+            ? 'border-gold-500 bg-gold-500/[0.06]'
+            : 'border-ink-700 bg-ink-900/30 hover:border-gold-500/50 hover:bg-ink-900/50',
+        )}
       >
-        <p className="text-sm text-parchment-100 font-medium">
-          Drag and drop images here, or click to select
+        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-ink-700 bg-ink-900 text-gold-500 transition-colors group-hover:border-gold-500/40">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+          </svg>
+        </span>
+        <p className="text-sm font-medium text-parchment-100">
+          Drag &amp; drop your images, or <span className="text-gold-400">browse files</span>
         </p>
-        <p className="text-xs text-ink-500 mt-1">JPEG, PNG, or WebP — max 10MB each</p>
+        <p className="mt-1 text-xs text-ink-500">JPEG, PNG, or WebP — up to 10MB each</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -226,83 +235,99 @@ export function Step3Portfolio({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            draggable={item.status === 'done'}
-            onDragStart={() => setDragSrcId(item.id)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => handleDrop(item.id)}
-            className="rounded-lg border border-ink-800 bg-ink-900 p-3 text-sm text-parchment-100"
-          >
-            <div className="relative mb-2 aspect-square overflow-hidden rounded bg-ink-800">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.previewUrl}
-                alt={item.caption || 'Portfolio image'}
-                className="h-full w-full object-cover"
-              />
-              {item.status === 'uploading' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                  <svg
-                    className="h-6 w-6 animate-spin text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            {item.status === 'error' && (
-              <p className="mb-2 text-xs text-red-400">{item.error}</p>
-            )}
-            <input
-              type="text"
-              value={item.caption}
-              onChange={(e) => handleCaptionChange(item.id, e.target.value)}
-              placeholder="Caption (optional)"
-              disabled={item.status !== 'done'}
-              className="mb-2 w-full rounded border border-ink-700 bg-ink-800 px-2 py-1 text-xs text-parchment-100 placeholder:text-ink-500"
-            />
-            <button
-              type="button"
-              onClick={() => void handleRemove(item.id)}
-              className="text-xs text-red-400 hover:text-red-300"
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        {items.length === 0 && (
-          <div className="text-sm text-ink-500 col-span-2">
-            No images yet — add some to continue, or skip this step and upload
-            later.
-          </div>
-        )}
-      </div>
+      {/* Count */}
+      {items.length > 0 && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-ink-400">
+            <span className="font-semibold text-parchment-200">{doneCount}</span> image
+            {doneCount === 1 ? '' : 's'} ready
+            {doneCount < 3 && <span className="text-ink-600"> · 3+ recommended</span>}
+          </span>
+          {uploadingCount > 0 && (
+            <span className="flex items-center gap-1.5 text-gold-400">
+              <span className="h-1.5 w-1.5 animate-pulse-gold rounded-full bg-gold-500" />
+              Uploading {uploadingCount}…
+            </span>
+          )}
+        </div>
+      )}
 
-      <div className="mt-6 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm text-ink-400 hover:text-ink-200"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={handleNextClick}
-          disabled={isSaving || uploadingCount > 0}
-          className="rounded-md bg-white text-black text-sm font-medium px-4 py-2 disabled:opacity-60"
-        >
-          {isSaving ? 'Saving…' : uploadingCount > 0 ? 'Uploading…' : 'Next'}
-        </button>
-      </div>
+      {/* Grid */}
+      {items.length > 0 ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              draggable={item.status === 'done'}
+              onDragStart={() => setDragSrcId(item.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop(item.id)}
+              className={cn(
+                'group overflow-hidden rounded-xl border bg-ink-900 transition-all duration-150',
+                item.status === 'done'
+                  ? 'cursor-grab border-ink-800 hover:border-gold-500/40 active:cursor-grabbing'
+                  : 'border-ink-800',
+              )}
+            >
+              <div className="relative aspect-square overflow-hidden bg-ink-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.previewUrl}
+                  alt={item.caption || 'Portfolio image'}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                />
+                {item.status === 'uploading' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-ink-950/70 backdrop-blur-sm">
+                    <svg className="h-6 w-6 animate-spin text-gold-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  </div>
+                )}
+                {item.status === 'done' && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove(item.id)}
+                    aria-label="Remove image"
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ink-950/70 text-parchment-200 opacity-0 backdrop-blur-sm transition-all duration-150 hover:bg-crimson-600 hover:text-white group-hover:opacity-100"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <div className="p-2.5">
+                {item.status === 'error' ? (
+                  <p className="text-xs text-crimson-400">{item.error}</p>
+                ) : (
+                  <input
+                    type="text"
+                    value={item.caption}
+                    onChange={(e) => handleCaptionChange(item.id, e.target.value)}
+                    placeholder="Caption (optional)"
+                    disabled={item.status !== 'done'}
+                    className="w-full rounded-md border border-ink-800 bg-ink-950/50 px-2.5 py-1.5 text-xs text-parchment-100 placeholder:text-ink-600 focus:border-gold-500/40 focus:outline-none"
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-ink-800 bg-ink-900/30 px-5 py-8 text-center">
+          <Hint>No images yet — add a few to bring your page to life, or continue and upload later.</Hint>
+        </div>
+      )}
+
+      <WizardNav
+        onBack={onBack}
+        submitType="button"
+        onSubmit={handleNextClick}
+        submitLabel="Continue"
+        busy={busy}
+        busyLabel={uploadingCount > 0 ? 'Uploading…' : 'Saving…'}
+      />
     </div>
   )
 }

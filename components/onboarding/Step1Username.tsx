@@ -4,6 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { step1Schema, type Step1Values } from '@/lib/validations/onboarding'
+import {
+  StepIntro,
+  FieldLabel,
+  FieldError,
+  Hint,
+  CharCount,
+  WizardNav,
+  prefixWrapClass,
+} from '@/components/onboarding/ui'
 
 interface Step1Props {
   defaultValues: Partial<Step1Values>
@@ -74,24 +83,19 @@ export function Step1Username({ defaultValues, onNext, isSaving }: Step1Props) {
     !errors.username && username.length >= 3 && availability === 'available'
   const busy = isSubmitting || isSaving
 
-  const availabilityIcon = () => {
+  const availabilityIndicator = () => {
     switch (availability) {
       case 'checking':
         return (
-          <span className="text-white/40 text-sm animate-pulse" aria-live="polite">
-            Checking…
+          <span className="flex items-center gap-1.5 text-sm text-ink-400" aria-live="polite">
+            <span className="h-1.5 w-1.5 animate-pulse-gold rounded-full bg-gold-500" />
+            Checking availability…
           </span>
         )
       case 'available':
         return (
-          <span className="text-emerald-400 text-sm flex items-center gap-1" aria-live="polite">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-4 h-4"
-              aria-hidden="true"
-            >
+          <span className="flex items-center gap-1.5 text-sm text-emerald-400" aria-live="polite">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
               <path
                 fillRule="evenodd"
                 d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
@@ -103,24 +107,7 @@ export function Step1Username({ defaultValues, onNext, isSaving }: Step1Props) {
         )
       case 'taken':
       case 'error':
-        return (
-          <span className="text-red-400 text-sm flex items-center gap-1" aria-live="polite">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-4 h-4"
-              aria-hidden="true"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {availabilityMessage}
-          </span>
-        )
+        return <FieldError>{availabilityMessage}</FieldError>
       default:
         return null
     }
@@ -128,21 +115,17 @@ export function Step1Username({ defaultValues, onNext, isSaving }: Step1Props) {
 
   return (
     <form onSubmit={handleSubmit(onNext)} noValidate className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-1">Choose your username</h2>
-        <p className="text-white/60 text-sm">
-          This becomes your public URL. You can&apos;t change it later.
-        </p>
-      </div>
+      <StepIntro
+        eyebrow="Step 1 · Username"
+        title="Claim your address"
+        description="This becomes your public booking page URL — permanent once you go live, so choose with care."
+      />
 
       <div className="space-y-3">
-        <label htmlFor="username" className="block text-sm font-medium text-white/80">
-          Username
-        </label>
+        <FieldLabel htmlFor="username">Username</FieldLabel>
 
-        {/* Input row */}
-        <div className="flex items-center rounded-lg overflow-hidden ring-1 ring-white/20 focus-within:ring-white/60 transition-all duration-150 bg-white/5">
-          <span className="pl-4 pr-1 text-white/40 text-sm select-none whitespace-nowrap">
+        <div className={prefixWrapClass}>
+          <span className="whitespace-nowrap select-none border-r border-ink-700 bg-ink-950/40 py-3 pl-4 pr-3 text-sm text-ink-400">
             inkdesk.co/
           </span>
           <input
@@ -153,64 +136,44 @@ export function Step1Username({ defaultValues, onNext, isSaving }: Step1Props) {
             spellCheck={false}
             maxLength={MAX_LENGTH}
             placeholder="your-name"
-            className="flex-1 bg-transparent py-3 pr-4 text-white placeholder-white/25 focus:outline-none text-sm"
+            className="flex-1 bg-transparent py-3 pl-3 pr-2 text-sm text-parchment-100 placeholder:text-ink-600 focus:outline-none"
             {...register('username', {
               setValueAs: (v: string) => v.toLowerCase().replace(/\s/g, '-'),
             })}
             aria-describedby="username-hint username-availability username-error"
           />
-          <span
-            className={[
-              'pr-4 text-xs tabular-nums',
-              username.length > MAX_LENGTH * 0.9 ? 'text-amber-400' : 'text-white/30',
-            ].join(' ')}
-            aria-label={`${username.length} of ${MAX_LENGTH} characters used`}
-          >
-            {username.length}/{MAX_LENGTH}
+          <span className="pr-4">
+            <CharCount value={username.length} max={MAX_LENGTH} />
           </span>
         </div>
 
         {/* Availability indicator */}
-        <div id="username-availability" className="h-5">
-          {!errors.username && availabilityIcon()}
+        <div id="username-availability" className="min-h-[1.25rem]">
+          {!errors.username && availabilityIndicator()}
         </div>
 
         {/* Validation error */}
-        {errors.username && (
-          <p id="username-error" className="text-red-400 text-sm" role="alert">
-            {errors.username.message}
-          </p>
-        )}
+        {errors.username && <FieldError id="username-error">{errors.username.message}</FieldError>}
 
-        {/* Hint */}
-        <p id="username-hint" className="text-white/40 text-xs">
+        <Hint id="username-hint">
           3–30 characters. Lowercase letters, numbers, and hyphens only.
-        </p>
+        </Hint>
       </div>
 
       {/* Live URL preview */}
       {username.length >= 3 && !errors.username && (
-        <div className="rounded-lg bg-white/5 border border-white/10 px-4 py-3">
-          <p className="text-xs text-white/40 mb-1">Your public booking page will be</p>
-          <p className="text-white font-mono text-sm">
+        <div className="overflow-hidden rounded-xl border border-gold-500/20 bg-gradient-surface p-4 shadow-inset-top">
+          <p className="mb-1 text-[0.7rem] font-semibold uppercase tracking-widest text-ink-500">
+            Your public booking page
+          </p>
+          <p className="font-mono text-sm text-ink-300">
             inkdesk.co/
-            <span className="text-white font-semibold">{username}</span>
+            <span className="font-semibold text-gold-400">{username}</span>
           </p>
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={!isFormValid || busy}
-        className={[
-          'w-full py-3 rounded-lg font-semibold text-sm transition-all duration-150',
-          isFormValid && !busy
-            ? 'bg-white text-black hover:bg-white/90 active:scale-[0.98]'
-            : 'bg-white/10 text-white/30 cursor-not-allowed',
-        ].join(' ')}
-      >
-        {busy ? 'Saving…' : 'Continue'}
-      </button>
+      <WizardNav submitLabel="Continue" busy={busy} disabled={!isFormValid} />
     </form>
   )
 }

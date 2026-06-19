@@ -2,7 +2,18 @@
 
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { cn } from '@/lib/utils'
 import { step4Schema, type Step4Values, type AvailabilitySlot } from '@/lib/validations/onboarding'
+import {
+  StepIntro,
+  FieldLabel,
+  FieldError,
+  Hint,
+  Toggle,
+  WizardNav,
+  selectClass,
+  prefixWrapClass,
+} from '@/components/onboarding/ui'
 
 interface Step4Props {
   defaultValues: Partial<Step4Values>
@@ -45,6 +56,9 @@ function detectTimezone(): string {
     return 'UTC'
   }
 }
+
+const timeInputClass =
+  'rounded-md border border-ink-700 bg-ink-950/60 px-2 py-1 text-xs text-parchment-100 focus:border-gold-500/50 focus:outline-none [color-scheme:dark]'
 
 export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4Props) {
   const {
@@ -108,20 +122,17 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
 
   return (
     <form onSubmit={handleSubmit(onNext)} noValidate className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-1">Pricing &amp; availability</h2>
-        <p className="text-white/60 text-sm">
-          Let clients know your rates and when you&apos;re available.
-        </p>
-      </div>
+      <StepIntro
+        eyebrow="Step 4 · Pricing & availability"
+        title="Set your terms"
+        description="Tell clients what you charge and when you take appointments. Everything here is editable later."
+      />
 
       {/* Hourly rate */}
       <div className="space-y-2">
-        <label htmlFor="hourlyRate" className="block text-sm font-medium text-white/80">
-          Hourly rate
-        </label>
-        <div className="flex items-center rounded-lg overflow-hidden ring-1 ring-white/20 focus-within:ring-white/60 transition-all duration-150 bg-white/5">
-          <span className="pl-4 pr-2 text-white/40 text-sm">£</span>
+        <FieldLabel htmlFor="hourlyRate">Hourly rate</FieldLabel>
+        <div className={prefixWrapClass}>
+          <span className="select-none border-r border-ink-700 bg-ink-950/40 py-3 px-4 text-sm text-ink-400">£</span>
           <input
             id="hourlyRate"
             type="number"
@@ -129,61 +140,43 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
             max={9999}
             step={0.01}
             placeholder="0.00"
-            className="flex-1 bg-transparent py-3 pr-4 text-white placeholder-white/25 text-sm focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="flex-1 bg-transparent py-3 px-3 text-sm text-parchment-100 placeholder:text-ink-600 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             aria-describedby={errors.hourlyRate ? 'hourlyRate-error' : undefined}
             {...register('hourlyRate', { valueAsNumber: true })}
           />
         </div>
-        {errors.hourlyRate && (
-          <p id="hourlyRate-error" className="text-red-400 text-sm" role="alert">
-            {errors.hourlyRate.message}
-          </p>
-        )}
+        {errors.hourlyRate && <FieldError id="hourlyRate-error">{errors.hourlyRate.message}</FieldError>}
       </div>
 
-      {/* Deposit toggle */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Deposit */}
+      <div className="space-y-4 rounded-xl border border-ink-800 bg-ink-900/30 p-5">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-white/80">Require a deposit</p>
-            <p className="text-white/40 text-xs mt-0.5">
-              Clients must pay upfront to confirm their booking
+            <p className="text-sm font-medium text-parchment-200">Require a deposit</p>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Clients pay upfront to confirm — fewer no-shows, committed bookings.
             </p>
           </div>
           <Controller
             name="depositRequired"
             control={control}
             render={({ field }) => (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={field.value}
-                onClick={() => field.onChange(!field.value)}
-                className={[
-                  'relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/50',
-                  field.value ? 'bg-white' : 'bg-white/20',
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform duration-200',
-                    field.value ? 'translate-x-5 bg-black' : 'translate-x-0 bg-white/60',
-                  ].join(' ')}
-                />
-                <span className="sr-only">{field.value ? 'Deposit required' : 'No deposit required'}</span>
-              </button>
+              <Toggle
+                checked={field.value}
+                onChange={field.onChange}
+                label={field.value ? 'Deposit required' : 'No deposit required'}
+              />
             )}
           />
         </div>
 
-        {/* Deposit amount (shown when deposit required) */}
         {depositRequired && (
-          <div className="space-y-2">
-            <label htmlFor="depositAmount" className="block text-sm font-medium text-white/80">
-              Deposit amount <span className="text-red-400" aria-hidden="true">*</span>
-            </label>
-            <div className="flex items-center rounded-lg overflow-hidden ring-1 ring-white/20 focus-within:ring-white/60 transition-all duration-150 bg-white/5">
-              <span className="pl-4 pr-2 text-white/40 text-sm">£</span>
+          <div className="space-y-2 border-t border-ink-800 pt-4">
+            <FieldLabel htmlFor="depositAmount" required>
+              Deposit amount
+            </FieldLabel>
+            <div className={prefixWrapClass}>
+              <span className="select-none border-r border-ink-700 bg-ink-950/40 py-3 px-4 text-sm text-ink-400">£</span>
               <input
                 id="depositAmount"
                 type="number"
@@ -191,16 +184,14 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
                 max={9999}
                 step={0.01}
                 placeholder="0.00"
-                className="flex-1 bg-transparent py-3 pr-4 text-white placeholder-white/25 text-sm focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="flex-1 bg-transparent py-3 px-3 text-sm text-parchment-100 placeholder:text-ink-600 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 aria-required={depositRequired}
                 aria-describedby={errors.depositAmount ? 'depositAmount-error' : undefined}
                 {...register('depositAmount', { valueAsNumber: true })}
               />
             </div>
             {errors.depositAmount && (
-              <p id="depositAmount-error" className="text-red-400 text-sm" role="alert">
-                {errors.depositAmount.message}
-              </p>
+              <FieldError id="depositAmount-error">{errors.depositAmount.message}</FieldError>
             )}
           </div>
         )}
@@ -208,32 +199,26 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
 
       {/* Timezone */}
       <div className="space-y-2">
-        <label htmlFor="timezone" className="block text-sm font-medium text-white/80">
-          Your timezone
-        </label>
+        <FieldLabel htmlFor="timezone">Your timezone</FieldLabel>
         <select
           id="timezone"
-          className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-white/60 transition-colors duration-150 appearance-none"
+          className={selectClass}
           aria-describedby={errors.timezone ? 'timezone-error' : undefined}
           {...register('timezone')}
         >
           {allTimezones.map((tz) => (
-            <option key={tz} value={tz} className="bg-zinc-900 text-white">
+            <option key={tz} value={tz} className="bg-ink-900 text-parchment-100">
               {tz.replace(/_/g, ' ')}
             </option>
           ))}
         </select>
-        {errors.timezone && (
-          <p id="timezone-error" className="text-red-400 text-sm" role="alert">
-            {errors.timezone.message}
-          </p>
-        )}
+        {errors.timezone && <FieldError id="timezone-error">{errors.timezone.message}</FieldError>}
       </div>
 
-      {/* Weekly availability grid */}
+      {/* Weekly availability */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-white/80">Weekly availability</p>
-        <p className="text-white/40 text-xs">Select the days you accept bookings.</p>
+        <FieldLabel>Weekly availability</FieldLabel>
+        <Hint>Select the days you accept bookings and set your hours.</Hint>
 
         <div className="space-y-2" role="group" aria-label="Weekly availability">
           {DAY_LABELS.map((label, dayIndex) => {
@@ -243,10 +228,10 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
             return (
               <div
                 key={dayIndex}
-                className={[
-                  'rounded-lg border transition-all duration-150 overflow-hidden',
-                  active ? 'border-white/30 bg-white/5' : 'border-white/10 bg-transparent',
-                ].join(' ')}
+                className={cn(
+                  'overflow-hidden rounded-lg border transition-all duration-150',
+                  active ? 'border-gold-500/30 bg-ink-900/50' : 'border-ink-800 bg-ink-900/20',
+                )}
               >
                 <div className="flex items-center gap-3 px-4 py-3">
                   <button
@@ -255,21 +240,13 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
                     aria-checked={active}
                     aria-label={`${label} available`}
                     onClick={() => toggleDay(dayIndex)}
-                    className={[
-                      'w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-all duration-150',
-                      active
-                        ? 'bg-white border-white'
-                        : 'border-white/30 hover:border-white/60',
-                    ].join(' ')}
+                    className={cn(
+                      'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-all duration-150',
+                      active ? 'border-gold-500 bg-gold-500' : 'border-ink-600 hover:border-gold-500/60',
+                    )}
                   >
                     {active && (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="black"
-                        className="w-3.5 h-3.5"
-                        aria-hidden="true"
-                      >
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-ink-950" aria-hidden="true">
                         <path
                           fillRule="evenodd"
                           d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
@@ -279,37 +256,30 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
                     )}
                   </button>
 
-                  <span
-                    className={[
-                      'w-12 text-sm font-medium',
-                      active ? 'text-white' : 'text-white/40',
-                    ].join(' ')}
-                  >
+                  <span className={cn('w-10 text-sm font-medium', active ? 'text-parchment-100' : 'text-ink-500')}>
                     {label}
                   </span>
 
-                  {active && slot && (
-                    <div className="flex items-center gap-2 ml-auto">
+                  {active && slot ? (
+                    <div className="ml-auto flex items-center gap-2">
                       <input
                         type="time"
                         value={slot.startTime}
                         onChange={(e) => updateSlotTime(dayIndex, 'startTime', e.target.value)}
                         aria-label={`${label} start time`}
-                        className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-white/60 [color-scheme:dark]"
+                        className={timeInputClass}
                       />
-                      <span className="text-white/40 text-xs">to</span>
+                      <span className="text-xs text-ink-500">to</span>
                       <input
                         type="time"
                         value={slot.endTime}
                         onChange={(e) => updateSlotTime(dayIndex, 'endTime', e.target.value)}
                         aria-label={`${label} end time`}
-                        className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-white/60 [color-scheme:dark]"
+                        className={timeInputClass}
                       />
                     </div>
-                  )}
-
-                  {!active && (
-                    <span className="ml-auto text-white/20 text-xs">Unavailable</span>
+                  ) : (
+                    <span className="ml-auto text-xs text-ink-700">Unavailable</span>
                   )}
                 </div>
               </div>
@@ -318,37 +288,15 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
         </div>
 
         {errors.availability && (
-          <p className="text-red-400 text-sm" role="alert">
+          <FieldError>
             {typeof errors.availability.message === 'string'
               ? errors.availability.message
               : 'Availability configuration error'}
-          </p>
+          </FieldError>
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={busy}
-          className="flex-1 py-3 rounded-lg text-sm font-semibold text-white/60 border border-white/20 hover:border-white/50 hover:text-white transition-all duration-150 disabled:opacity-40"
-        >
-          Back
-        </button>
-        <button
-          type="submit"
-          disabled={!isValid || busy}
-          className={[
-            'flex-[2] py-3 rounded-lg font-semibold text-sm transition-all duration-150',
-            isValid && !busy
-              ? 'bg-white text-black hover:bg-white/90 active:scale-[0.98]'
-              : 'bg-white/10 text-white/30 cursor-not-allowed',
-          ].join(' ')}
-        >
-          {busy ? 'Saving…' : 'Continue'}
-        </button>
-      </div>
+      <WizardNav onBack={onBack} submitLabel="Continue" busy={busy} disabled={!isValid} />
     </form>
   )
 }

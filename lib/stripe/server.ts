@@ -93,8 +93,28 @@ export async function createSubscriptionCheckout(params: {
   userId: string
   successUrl: string
   cancelUrl: string
+  /**
+   * Free-trial length in days. When > 0, Stripe collects the card but does not
+   * charge until the trial ends, and reports the subscription as `trialing`.
+   * Omit or pass 0 for an immediate charge.
+   */
+  trialPeriodDays?: number
 }): Promise<string> {
   const stripe = getStripe()
+
+  const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
+    metadata: {
+      supabase_user_id: params.userId,
+    },
+  }
+
+  if (params.trialPeriodDays && params.trialPeriodDays > 0) {
+    subscriptionData.trial_period_days = params.trialPeriodDays
+    // If the trial lapses without a usable card, cancel rather than dunning.
+    subscriptionData.trial_settings = {
+      end_behavior: { missing_payment_method: 'cancel' },
+    }
+  }
 
   const session = await stripe.checkout.sessions.create({
     customer: params.customerId,
@@ -111,11 +131,7 @@ export async function createSubscriptionCheckout(params: {
     metadata: {
       supabase_user_id: params.userId,
     },
-    subscription_data: {
-      metadata: {
-        supabase_user_id: params.userId,
-      },
-    },
+    subscription_data: subscriptionData,
   })
 
   if (!session.url) {
