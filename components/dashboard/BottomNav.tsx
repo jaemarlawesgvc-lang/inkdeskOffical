@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 interface BottomNavProps {
   username: string
@@ -78,7 +79,7 @@ export function BottomNav({ username: _username }: BottomNavProps) {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 bg-[#0f0f0f] border-t border-white/10 z-40"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/90 backdrop-blur-xl lg:hidden"
       aria-label="Mobile navigation"
     >
       <div className="flex">
@@ -89,11 +90,19 @@ export function BottomNav({ username: _username }: BottomNavProps) {
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
-              className={[
-                'flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors duration-150',
-                active ? 'text-white' : 'text-white/40',
-              ].join(' ')}
+              className={cn(
+                'relative flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors duration-150',
+                active ? 'text-gold-400' : 'text-white/40 hover:text-white/70',
+              )}
             >
+              {/* Active top indicator */}
+              <span
+                aria-hidden
+                className={cn(
+                  'absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-gold-500 transition-opacity duration-150',
+                  active ? 'opacity-100' : 'opacity-0',
+                )}
+              />
               {item.icon(active)}
               <span>{item.label}</span>
             </Link>

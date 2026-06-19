@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 interface SidebarProps {
   username: string
@@ -108,14 +109,22 @@ export function Sidebar({ username }: SidebarProps) {
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
 
   return (
-    <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-60 bg-[#0f0f0f] border-r border-white/10 z-40">
-      {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/10">
-        <span className="text-white font-bold text-lg tracking-tight">InkDesk</span>
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-white/[0.07] bg-ink-950/95 backdrop-blur-xl lg:flex">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-noise opacity-30" />
+
+      {/* Wordmark */}
+      <div className="relative px-6 py-5">
+        <span className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight text-white">
+          <span className="h-2 w-2 rounded-full bg-gold-500 shadow-gold" aria-hidden="true" />
+          InkDesk
+        </span>
+        <p className="mt-1 pl-[1.1rem] text-[0.65rem] font-medium uppercase tracking-[0.22em] text-ink-500">
+          Studio
+        </p>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1" aria-label="Dashboard navigation">
+      <nav className="relative flex-1 space-y-0.5 overflow-y-auto px-3 py-2" aria-label="Dashboard navigation">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href)
           return (
@@ -123,14 +132,24 @@ export function Sidebar({ username }: SidebarProps) {
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
-              className={[
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150',
+              className={cn(
+                'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                 active
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/50 hover:text-white hover:bg-white/5',
-              ].join(' ')}
+                  ? 'bg-gold-500/[0.08] text-gold-300'
+                  : 'text-white/50 hover:bg-white/[0.04] hover:text-white',
+              )}
             >
-              {item.icon}
+              {/* Active indicator bar */}
+              <span
+                aria-hidden
+                className={cn(
+                  'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-gold-500 transition-opacity duration-150',
+                  active ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+              <span className={cn('transition-colors', active ? 'text-gold-400' : 'text-white/40 group-hover:text-white/70')}>
+                {item.icon}
+              </span>
               {item.label}
             </Link>
           )
@@ -139,12 +158,12 @@ export function Sidebar({ username }: SidebarProps) {
 
       {/* Footer: view live page */}
       {username && (
-        <div className="px-3 py-4 border-t border-white/10">
+        <div className="relative border-t border-white/[0.07] p-3">
           <a
             href={`/${username}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/40 hover:text-white hover:bg-white/5 transition-colors duration-150"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/40 transition-colors duration-150 hover:bg-white/[0.04] hover:text-gold-300"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
               <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />

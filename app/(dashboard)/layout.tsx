@@ -26,7 +26,7 @@ export default async function DashboardLayout({
   // (You can add a login redirect later once loops are fixed.)
   if (!user) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+      <div className="min-h-screen bg-ink-950 flex items-center justify-center text-parchment-300">
         <p>Please log in to view your dashboard.</p>
       </div>
     )
@@ -56,14 +56,21 @@ export default async function DashboardLayout({
       : 'free'
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="relative min-h-screen bg-ink-950 flex">
+      {/* Ambient layers — fixed so they don't scroll with content */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 bg-noise opacity-50" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -top-32 right-0 h-[32rem] w-[32rem] rounded-full bg-gold-500/[0.05] blur-3xl"
+      />
+
       {/* Desktop sidebar */}
       <Sidebar username={username} />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-60">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 lg:ml-60">
         <TopBar displayName={displayName} plan={plan} />
-        <main className="flex-1 px-4 sm:px-6 py-6 pb-24 lg:pb-6">
+        <main className="flex-1 px-4 sm:px-6 py-6 pb-24 lg:pb-8">
           {children}
         </main>
       </div>

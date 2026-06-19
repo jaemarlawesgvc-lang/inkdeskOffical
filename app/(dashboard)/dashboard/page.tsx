@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import { StatsRow } from '@/components/dashboard/StatsRow'
 import { UpcomingBookings } from '@/components/dashboard/UpcomingBookings'
+import { buttonVariants } from '@/components/ui/button'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
@@ -25,6 +26,13 @@ function startOfMonthIso(): string {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
 }
 
+function timeGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
 export default async function DashboardOverviewPage() {
   const supabase = await createSupabaseServerClient()
 
@@ -36,7 +44,7 @@ export default async function DashboardOverviewPage() {
 
   const { data: artist } = await supabase
     .from('artists')
-    .select('id, onboarding_complete')
+    .select('id, onboarding_complete, display_name')
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -143,18 +151,33 @@ export default async function DashboardOverviewPage() {
     },
   ]
 
+  const firstName = (artist.display_name ?? '').trim().split(' ')[0] ?? ''
+  const dateLabel = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Overview</h1>
-          <p className="text-sm text-white/40 mt-0.5">
-            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-gold-500">
+            {dateLabel}
           </p>
+          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight text-white">
+            {timeGreeting()}
+            {firstName && (
+              <>
+                , <span className="text-gold-300">{firstName}</span>
+              </>
+            )}
+          </h1>
         </div>
         <Link
           href="/dashboard/bookings"
-          className="inline-flex items-center gap-1.5 justify-center rounded-lg bg-white text-black px-4 py-2 text-sm font-semibold hover:bg-white/90 transition-colors"
+          className={buttonVariants({ variant: 'primary', size: 'md', className: 'gap-1.5' })}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
             <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -165,12 +188,14 @@ export default async function DashboardOverviewPage() {
 
       <StatsRow stats={stats} />
 
-      <div>
-        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest mb-3">
-          Upcoming bookings
-        </h2>
+      {/* Upcoming */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold text-white">Upcoming bookings</h2>
+          <span className="text-xs font-medium uppercase tracking-widest text-white/35">Next 7 days</span>
+        </div>
         <UpcomingBookings bookings={upcomingBookings} />
-      </div>
+      </section>
     </div>
   )
 }
