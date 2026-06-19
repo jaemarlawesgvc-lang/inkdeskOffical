@@ -92,26 +92,25 @@ export function PortfolioSection({ images, accentColor }: PortfolioSectionProps)
           <div className="w-12 h-[2px] mx-auto mt-4 rounded-full" style={{ backgroundColor: accentColor }} />
         </Reveal>
 
-        {/* Masonry via CSS columns */}
-        <div className="columns-2 md:columns-3 gap-6 [&>*]:mb-6" role="list">
+        {/* Instagram-style square grid */}
+        <div className="grid grid-cols-3 gap-1 sm:gap-2" role="list">
           {images.map((img, i) => (
-            <Reveal key={i} delay={(i % 3) * 90} className="break-inside-avoid">
+            <Reveal key={i} delay={(i % 3) * 90}>
               <button
                 type="button"
                 role="listitem"
                 onClick={(e) => openLightbox(i, e.currentTarget)}
-                className="block w-full rounded-2xl overflow-hidden group relative focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black transition-all duration-300 shadow-lg hover:shadow-2xl hover:-translate-y-1.5 bg-zinc-900 border border-white/5 hover:border-white/10"
+                className="block w-full aspect-square rounded-lg sm:rounded-xl overflow-hidden group relative focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black transition-all duration-300 bg-zinc-900"
                 style={{ ['--tw-ring-color' as string]: accentColor }}
                 aria-label={`View ${img.caption || `portfolio image ${i + 1}`} enlarged`}
               >
                 <Image
                   src={img.publicUrl}
                   alt={img.caption || `Portfolio image ${i + 1}`}
-                  width={600}
-                  height={800}
-                  sizes="(max-width: 768px) 50vw, 33vw"
+                  fill
+                  sizes="(max-width: 768px) 33vw, 33vw"
                   loading="lazy"
-                  className="w-full h-auto object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                 />
 
                 {/* Accent ring on hover */}

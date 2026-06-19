@@ -11,11 +11,9 @@ interface HeroSectionProps {
   ctaText: string
   accentColor: string
   artistName: string
-  username: string
   instagramHandle?: string | null
   styleTags?: string[]
   images?: HeroImage[]
-  portfolioCount?: number
   yearsExperience?: number | null
   rating?: number | null
   reviewCount?: number
@@ -33,11 +31,9 @@ export function HeroSection({
   ctaText,
   accentColor,
   artistName,
-  username,
   instagramHandle,
   styleTags = [],
   images = [],
-  portfolioCount = 0,
   yearsExperience,
   rating,
   reviewCount = 0,
@@ -45,12 +41,9 @@ export function HeroSection({
 }: HeroSectionProps) {
   const avatar = images[0] ?? null
   const backdrop = images[0] ?? null
-  const handle = (instagramHandle ?? username).replace(/^@/, '')
+  const handle = instagramHandle?.replace(/^@/, '') || null
 
-  // Authentic, real-data stats only — no fabricated follower counts.
   const stats: Stat[] = []
-  if (portfolioCount > 0) stats.push({ value: String(portfolioCount), label: portfolioCount === 1 ? 'piece' : 'pieces' })
-  if (styleTags.length > 0) stats.push({ value: String(styleTags.length), label: styleTags.length === 1 ? 'style' : 'styles' })
   if (rating && reviewCount > 0) stats.push({ value: rating.toFixed(1), label: `★ (${reviewCount})` })
   if (yearsExperience && yearsExperience > 0) stats.push({ value: `${yearsExperience}y`, label: 'experience' })
 
@@ -106,14 +99,16 @@ export function HeroSection({
                 )}
               </div>
 
-              <a
-                href={instagramHandle ? `https://instagram.com/${handle}` : '#portfolio'}
-                target={instagramHandle ? '_blank' : undefined}
-                rel={instagramHandle ? 'noopener noreferrer' : undefined}
-                className="mt-1 inline-block text-sm font-medium text-white/55 transition-colors hover:text-white"
-              >
-                @{handle}
-              </a>
+              {handle && (
+                <a
+                  href={`https://instagram.com/${handle}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-sm font-medium text-white/55 transition-colors hover:text-white"
+                >
+                  @{handle}
+                </a>
+              )}
 
               {/* Stats */}
               {stats.length > 0 && (

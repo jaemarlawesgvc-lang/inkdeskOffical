@@ -301,11 +301,9 @@ export default async function ArtistPage({
           ctaText={heroCta}
           accentColor={accent}
           artistName={name}
-          username={artist.username}
           instagramHandle={artist.instagram_handle}
           styleTags={styleTags}
           images={portfolio}
-          portfolioCount={portfolio.length}
           yearsExperience={artist.years_experience}
           rating={avgRating}
           reviewCount={reviews.length}
