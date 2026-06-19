@@ -12,6 +12,11 @@ const serviceSchema = z.object({
   priceFrom: z.string().min(1),
 })
 
+const faqSchema = z.object({
+  question: z.string().min(1),
+  answer: z.string().min(1),
+})
+
 export const siteDataSchema = z.object({
   hero: z.object({
     headline: z.string().min(1),
@@ -23,6 +28,7 @@ export const siteDataSchema = z.object({
     body: z.string().min(1),
   }),
   services: z.array(serviceSchema).min(1).max(10),
+  faqs: z.array(faqSchema).min(1).max(10).optional(),
   seoTitle: z.string().min(1).max(70),
   seoDescription: z.string().min(1).max(160),
   colorScheme: z.object({
@@ -78,6 +84,9 @@ Return ONLY a valid JSON object with this exact structure:
   "services": [
     { "name": string, "description": string, "priceFrom": string }
   ],
+  "faqs": [
+    { "question": string, "answer": string }
+  ],
   "seoTitle": string,
   "seoDescription": string,
   "colorScheme": {
@@ -88,6 +97,7 @@ Return ONLY a valid JSON object with this exact structure:
 }
 
 The aesthetic must be premium tattoo studio — dark, sophisticated, bold typography, not generic.
+Include 4-5 relevant FAQs for the artist based on their style, bio and typical client questions.
 Do not include any markdown, backticks, or explanation. Return JSON only.`
 }
 
@@ -137,7 +147,7 @@ function stripCodeFences(text: string): string {
 }
 
 async function callOnce(prompt: string): Promise<string> {
-  const model = getClient().getGenerativeModel({ model: 'gemini-2.5-flash' })
+  const model = getClient().getGenerativeModel({ model: 'gemini-2.0-flash' })
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new GeminiTimeoutError()), TIMEOUT_MS)

@@ -126,11 +126,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const siteData = await callGemini(prompt)
 
+    // Extract FAQs from siteData for separate database storage
+    const { faqs: generatedFaqs, ...cleanSiteData } = siteData as any
+
     // Persist site data
     const { error: updateError } = await supabase
       .from('artists')
       .update({
-        site_data: siteData,
+        site_data: cleanSiteData,
         site_generated: true,
         onboarding_complete: true,
         updated_at: new Date().toISOString(),
@@ -143,6 +146,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { error: 'Generated successfully but failed to save. Please try again.' },
         { status: 500 },
       )
+    }
+
+    // Sync FAQs if generated, wrapping in try-catch to handle missing table gracefully
+    if (generatedFaqs && Array.isArray(generatedFaqs)) {
+      try {
+        await supabase.from('artist_faqs').delete().eq('artist_id', artist.id)
+        if (generatedFaqs.length > 0) {
+          const { error: faqError } = await supabase.from('artist_faqs').insert(
+            generatedFaqs.map((f: any, i: number) => ({
+              artist_id: artist.id,
+              question: f.question,
+              answer: f.answer,
+              display_order: i,
+            })),
+          )
+          if (faqError) {
+            console.error('[generate-site] Failed to save generated FAQs:', faqError.message)
+          }
+        }
+      } catch (err: any) {
+        console.warn('[generate-site] Gracefully caught FAQ sync error (table may not exist yet):', err.message || err)
+      }
     }
 
     // Log generation to audit_logs for metered tracking

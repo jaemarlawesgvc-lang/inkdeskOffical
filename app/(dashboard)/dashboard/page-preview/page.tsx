@@ -18,7 +18,7 @@ export default async function PagePreviewPage() {
 
   const { data: artist } = await supabase
     .from('artists')
-    .select('id, username, site_data, site_generated')
+    .select('id, username, site_data, site_generated, display_name, bio, style_tags, instagram_handle, studio_name, studio_address, studio_lat, studio_lng')
     .eq('user_id', user.id)
     .single()
 
@@ -48,6 +48,39 @@ export default async function PagePreviewPage() {
   const generationsUsed = generationsThisMonth ?? 0
   const canRegenerate =
     generationLimit === Infinity || generationsUsed < generationLimit
+
+  // ── Credentials (table may not exist yet) ──
+  let credentials: {
+    id: string
+    type: 'license' | 'award' | 'publication'
+    title: string
+    issuingBody: string | null
+    year: number | null
+    expiryDate: string | null
+    url: string | null
+    storagePath: string | null
+  }[] = []
+  try {
+    const { data: credentialRows } = await supabase
+      .from('artist_credentials')
+      .select('id, type, title, issuing_body, year, expiry_date, url, storage_path')
+      .eq('artist_id', artist.id as string)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+
+    credentials = (credentialRows ?? []).map((c) => ({
+      id: c.id,
+      type: c.type as 'license' | 'award' | 'publication',
+      title: c.title,
+      issuingBody: c.issuing_body,
+      year: c.year,
+      expiryDate: c.expiry_date,
+      url: c.url,
+      storagePath: c.storage_path,
+    }))
+  } catch {
+    console.warn('[page-preview] artist_credentials query failed — table may not exist')
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -81,6 +114,17 @@ export default async function PagePreviewPage() {
         generationsUsed={generationsUsed}
         generationLimit={generationLimit === Infinity ? null : generationLimit}
         plan={plan}
+        initialProfile={{
+          displayName: (artist.display_name as string) ?? '',
+          bio: (artist.bio as string) ?? '',
+          styleTags: (artist.style_tags as string[]) ?? [],
+          instagramHandle: (artist.instagram_handle as string) ?? '',
+          studioName: (artist.studio_name as string) ?? '',
+          studioAddress: (artist.studio_address as string) ?? '',
+          studioLat: (artist.studio_lat as number) ?? null,
+          studioLng: (artist.studio_lng as number) ?? null,
+        }}
+        initialCredentials={credentials}
       />
     </div>
   )

@@ -176,64 +176,6 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
         </div>
       )}
 
-      {/* ── Profile ── */}
-      <Section title="Profile" description="Shown on your public booking page">
-        <Field label="Display name" id="displayName">
-          <input id="displayName" type="text" value={data.displayName} onChange={(e) => set('displayName', e.target.value)} className={inputCls} placeholder="Your name" />
-        </Field>
-        <Field label="Bio" id="bio">
-          <textarea id="bio" rows={3} value={data.bio} onChange={(e) => set('bio', e.target.value)} className={`${inputCls} resize-none`} placeholder="Tell clients about your work…" maxLength={500} />
-          <p className="text-xs text-white/30 mt-1">{data.bio.length}/500</p>
-        </Field>
-        <Field label="Style tags">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Style tags">
-            {STYLE_TAG_OPTIONS.map((tag) => {
-              const active = data.styleTags.includes(tag)
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => toggleStyleTag(tag)}
-                  className={[
-                    'px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150',
-                    active ? 'bg-white text-black border-white' : 'border-white/20 text-white/50 hover:border-white/50 hover:text-white',
-                  ].join(' ')}
-                >
-                  {tag}
-                </button>
-              )
-            })}
-          </div>
-        </Field>
-        <Field label="Instagram handle" id="instagram">
-          <div className="flex items-center rounded-lg overflow-hidden ring-1 ring-white/20 focus-within:ring-white/50 bg-white/5">
-            <span className="pl-4 pr-1 text-white/40 text-sm">@</span>
-            <input id="instagram" type="text" value={data.instagramHandle} onChange={(e) => set('instagramHandle', e.target.value)} className="flex-1 bg-transparent py-2.5 pr-4 text-white placeholder-white/25 text-sm focus:outline-none" placeholder="yourhandle" />
-          </div>
-        </Field>
-      </Section>
-
-      {/* ── Studio ── */}
-      <Section title="Studio" description="Studio details shown on your booking page">
-        <Field label="Studio name" id="studioName">
-          <input id="studioName" type="text" value={data.studioName} onChange={(e) => set('studioName', e.target.value)} className={inputCls} placeholder="Studio name (optional)" />
-        </Field>
-        <Field label="Studio address" id="studioAddress">
-          <StudioLocationPicker
-            address={data.studioAddress}
-            onAddressChange={(address) => set('studioAddress', address)}
-            onCoordsChange={(lat, lng) => {
-              set('studioLat', lat)
-              set('studioLng', lng)
-            }}
-          />
-          <p className="text-xs text-white/30 mt-1">
-            Search and select your studio to show a map on your public page.
-          </p>
-        </Field>
-      </Section>
-
       {/* ── Availability ── */}
       <Section title="Availability" description="Days and times you accept bookings">
         <div className="space-y-2" role="group" aria-label="Weekly availability">

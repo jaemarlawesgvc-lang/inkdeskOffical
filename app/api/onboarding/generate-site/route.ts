@@ -88,11 +88,14 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
     )
   }
 
+  // Extract FAQs from siteData for separate database storage
+  const { faqs: generatedFaqs, ...cleanSiteData } = siteData as any
+
   // Persist site data and mark onboarding complete
   const { error: updateError } = await supabase
     .from('artists')
     .update({
-      site_data: siteData,
+      site_data: cleanSiteData,
       site_generated: true,
       onboarding_complete: true,
       onboarding_step: 5,
@@ -103,6 +106,28 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
   if (updateError) {
     console.error('[onboarding/generate-site] DB update error:', updateError.message)
     return NextResponse.json({ error: 'Failed to save generated site' }, { status: 500 })
+  }
+
+  // Sync FAQs if generated, wrapping in try-catch to handle missing table gracefully
+  if (generatedFaqs && Array.isArray(generatedFaqs)) {
+    try {
+      await supabase.from('artist_faqs').delete().eq('artist_id', artist.id)
+      if (generatedFaqs.length > 0) {
+        const { error: faqError } = await supabase.from('artist_faqs').insert(
+          generatedFaqs.map((f: any, i: number) => ({
+            artist_id: artist.id,
+            question: f.question,
+            answer: f.answer,
+            display_order: i,
+          })),
+        )
+        if (faqError) {
+          console.error('[onboarding/generate-site] Failed to save generated FAQs:', faqError.message)
+        }
+      }
+    } catch (err: any) {
+      console.warn('[onboarding/generate-site] Gracefully caught FAQ sync error (table may not exist yet):', err.message || err)
+    }
   }
 
   return NextResponse.json({ ok: true, siteData })

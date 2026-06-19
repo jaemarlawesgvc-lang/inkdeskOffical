@@ -180,16 +180,6 @@ export default async function SettingsPage() {
         </div>
         <FaqManager initialFaqs={faqs} />
       </section>
-
-      <section id="credentials" className="bg-white/5 border border-white/10 rounded-xl p-5 sm:p-6 space-y-5 max-w-2xl">
-        <div>
-          <h2 className="text-base font-semibold text-white">Credentials</h2>
-          <p className="text-white/40 text-sm mt-0.5">
-            Licenses are kept private — only a &ldquo;Licensed&rdquo; badge is shown publicly. Awards and publications appear on your page.
-          </p>
-        </div>
-        <CredentialsManager artistId={artist.id as string} initialCredentials={credentials} />
-      </section>
     </div>
   )
 }

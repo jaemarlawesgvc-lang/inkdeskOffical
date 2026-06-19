@@ -5,30 +5,30 @@ import { z } from 'zod'
 
 const schema = z.object({
   artistId: z.string().uuid(),
-  displayName: z.string().min(1).max(100).trim(),
-  bio: z.string().max(500).trim(),
-  styleTags: z.array(z.string()).max(10),
-  instagramHandle: z.string().max(30).trim(),
-  studioName: z.string().max(200).trim(),
-  studioAddress: z.string().max(500).trim(),
+  displayName: z.string().min(1).max(100).trim().optional(),
+  bio: z.string().max(500).trim().optional(),
+  styleTags: z.array(z.string()).max(10).optional(),
+  instagramHandle: z.string().max(30).trim().optional(),
+  studioName: z.string().max(200).trim().optional(),
+  studioAddress: z.string().max(500).trim().optional(),
   studioLat: z.number().min(-90).max(90).nullable().optional(),
   studioLng: z.number().min(-180).max(180).nullable().optional(),
-  hourlyRate: z.number().positive().max(9999.99).nullable().optional(),
-  depositAmount: z.number().positive().max(9999.99).nullable().optional(),
-  depositRequired: z.boolean(),
-  pricingNotes: z.string().max(1000).trim(),
-  priceTier: z.string().optional().default('££'),
-  timezone: z.string().min(1),
+  hourlyRate: z.number().nonnegative().max(9999.99).nullable().optional(),
+  depositAmount: z.number().nonnegative().max(9999.99).nullable().optional(),
+  depositRequired: z.boolean().optional(),
+  pricingNotes: z.string().max(1000).trim().optional(),
+  priceTier: z.string().optional(),
+  timezone: z.string().min(1).optional(),
   availability: z.array(
     z.object({
       dayOfWeek: z.number().int().min(0).max(6),
       startTime: z.string().regex(/^\d{2}:\d{2}$/),
       endTime: z.string().regex(/^\d{2}:\d{2}$/),
     }),
-  ),
-  emailBookingConfirmation: z.boolean(),
-  emailReminders: z.boolean(),
-  emailAftercare: z.boolean(),
+  ).optional(),
+  emailBookingConfirmation: z.boolean().optional(),
+  emailReminders: z.boolean().optional(),
+  emailAftercare: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -72,63 +72,68 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const now = new Date().toISOString()
 
-  // Update artist profile + pricing
-  const updatePayload: any = {
-    display_name: d.displayName,
-    bio: d.bio,
-    style_tags: d.styleTags,
-    instagram_handle: d.instagramHandle,
-    studio_name: d.studioName || null,
-    studio_address: d.studioAddress || null,
-    studio_lat: d.studioLat ?? null,
-    studio_lng: d.studioLng ?? null,
-    hourly_rate: d.hourlyRate ?? null,
-    deposit_amount: d.depositAmount ?? null,
-    deposit_required: d.depositRequired,
-    pricing_notes: d.pricingNotes || null,
-    price_tier: d.priceTier || '££',
-    email_booking_confirmation: d.emailBookingConfirmation,
-    email_reminders: d.emailReminders,
-    email_aftercare: d.emailAftercare,
-    updated_at: now,
-  }
+  // Update artist profile + pricing dynamically
+  const updatePayload: any = {}
+  if (d.displayName !== undefined) updatePayload.display_name = d.displayName
+  if (d.bio !== undefined) updatePayload.bio = d.bio
+  if (d.styleTags !== undefined) updatePayload.style_tags = d.styleTags
+  if (d.instagramHandle !== undefined) updatePayload.instagram_handle = d.instagramHandle
+  if (d.studioName !== undefined) updatePayload.studio_name = d.studioName || null
+  if (d.studioAddress !== undefined) updatePayload.studio_address = d.studioAddress || null
+  if (d.studioLat !== undefined) updatePayload.studio_lat = d.studioLat ?? null
+  if (d.studioLng !== undefined) updatePayload.studio_lng = d.studioLng ?? null
+  if (d.hourlyRate !== undefined) updatePayload.hourly_rate = d.hourlyRate ?? null
+  if (d.depositAmount !== undefined) updatePayload.deposit_amount = d.depositAmount ?? null
+  if (d.depositRequired !== undefined) updatePayload.deposit_required = d.depositRequired
+  if (d.pricingNotes !== undefined) updatePayload.pricing_notes = d.pricingNotes || null
+  if (d.priceTier !== undefined) updatePayload.price_tier = d.priceTier || '££'
+  if (d.emailBookingConfirmation !== undefined) updatePayload.email_booking_confirmation = d.emailBookingConfirmation
+  if (d.emailReminders !== undefined) updatePayload.email_reminders = d.emailReminders
+  if (d.emailAftercare !== undefined) updatePayload.email_aftercare = d.emailAftercare
 
-  let { error: artistError } = await supabase
-    .from('artists')
-    .update(updatePayload)
-    .eq('id', d.artistId)
-
-  // Graceful fallback if price_tier column doesn't exist yet
-  if (artistError && (artistError.message.includes('price_tier') || artistError.code === '42703')) {
-    delete updatePayload.price_tier
-    const retry = await supabase
+  let artistError = null
+  if (Object.keys(updatePayload).length > 0) {
+    updatePayload.updated_at = now
+    const { error: updateErr } = await supabase
       .from('artists')
       .update(updatePayload)
       .eq('id', d.artistId)
-    artistError = retry.error
+    artistError = updateErr
+
+    // Graceful fallback if price_tier column doesn't exist yet
+    if (artistError && (artistError.message.includes('price_tier') || artistError.code === '42703')) {
+      delete updatePayload.price_tier
+      const retry = await supabase
+        .from('artists')
+        .update(updatePayload)
+        .eq('id', d.artistId)
+      artistError = retry.error
+    }
   }
 
   if (artistError) {
     return NextResponse.json({ error: 'Failed to save profile' }, { status: 500 })
   }
 
-  // Resync availability slots
-  await supabase.from('artist_availability').delete().eq('artist_id', d.artistId)
+  // Resync availability slots only if provided in request body
+  if (d.availability !== undefined) {
+    await supabase.from('artist_availability').delete().eq('artist_id', d.artistId)
 
-  if (d.availability.length > 0) {
-    const { error: availError } = await supabase.from('artist_availability').insert(
-      d.availability.map((s) => ({
-        artist_id: d.artistId,
-        day_of_week: s.dayOfWeek,
-        start_time: s.startTime,
-        end_time: s.endTime,
-        timezone: d.timezone,
-      })),
-    )
-    if (availError) {
-      return NextResponse.json({ error: 'Failed to save availability' }, { status: 500 })
+    if (d.availability.length > 0) {
+      const timezone = d.timezone || 'Europe/London'
+      const { error: availError } = await supabase.from('artist_availability').insert(
+        d.availability.map((s) => ({
+          artist_id: d.artistId,
+          day_of_week: s.dayOfWeek,
+          start_time: s.startTime,
+          end_time: s.endTime,
+          timezone,
+        })),
+      )
+      if (availError) {
+        return NextResponse.json({ error: 'Failed to save availability' }, { status: 500 })
+      }
     }
   }
-
   return NextResponse.json({ ok: true })
 }
