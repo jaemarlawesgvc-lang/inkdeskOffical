@@ -28,6 +28,7 @@ interface MyPageData {
   priceTier: string
   timezone: string
   availability: AvailabilitySlot[]
+  colorScheme: { primary: string; secondary: string; accent: string }
 }
 
 interface MyPageSettingsFormProps {
@@ -37,6 +38,14 @@ interface MyPageSettingsFormProps {
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DEBOUNCE_MS = 1500
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+const FALLBACK_COLORS = { primary: '#0a0a0a', secondary: '#111827', accent: '#d4af37' } as const
+const COLOR_FIELDS = [
+  { key: 'accent', label: 'Accent', hint: 'Buttons, links & highlights' },
+  { key: 'primary', label: 'Primary', hint: 'Page background' },
+  { key: 'secondary', label: 'Secondary', hint: 'Background tint & surfaces' },
+] as const
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -88,11 +97,20 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
     setStatus('saving')
     setErrorMessage(null)
 
+    // Coerce any mid-typed/invalid hex to a valid fallback so the strict API
+    // validation never rejects an auto-save while the user is still editing.
+    const cs = latestData.current.colorScheme
+    const safeColorScheme = {
+      primary: HEX_RE.test(cs.primary) ? cs.primary : FALLBACK_COLORS.primary,
+      secondary: HEX_RE.test(cs.secondary) ? cs.secondary : FALLBACK_COLORS.secondary,
+      accent: HEX_RE.test(cs.accent) ? cs.accent : FALLBACK_COLORS.accent,
+    }
+
     try {
       const res = await fetch('/api/dashboard/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artistId, ...latestData.current }),
+        body: JSON.stringify({ ...latestData.current, artistId, colorScheme: safeColorScheme }),
         signal: controller.signal,
       })
       const json = (await res.json()) as { error?: string }
@@ -138,6 +156,10 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
 
   const set = <K extends keyof MyPageData>(key: K, value: MyPageData[K]) => {
     setData((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const updateColor = (key: 'primary' | 'secondary' | 'accent', value: string) => {
+    setData((prev) => ({ ...prev, colorScheme: { ...prev.colorScheme, [key]: value } }))
   }
 
   const toggleStyleTag = (tag: string) => {
@@ -206,6 +228,44 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
             <input id="instagram" type="text" value={data.instagramHandle} onChange={(e) => set('instagramHandle', e.target.value)} className="flex-1 bg-transparent py-2.5 pr-4 text-white placeholder-white/25 text-sm focus:outline-none" placeholder="yourhandle" />
           </div>
         </Field>
+      </Section>
+
+      {/* ── Colour palette ── */}
+      <Section title="Colour palette" description="Colours used across your public page. Changes auto-save.">
+        {COLOR_FIELDS.map(({ key, label, hint }) => {
+          const value = data.colorScheme[key] || FALLBACK_COLORS[key]
+          const valid = HEX_RE.test(value)
+          const swatch = valid ? value : FALLBACK_COLORS[key]
+          return (
+            <div key={key} className="flex items-center gap-3">
+              <label
+                className="relative h-10 w-12 shrink-0 rounded-md border border-white/20 cursor-pointer overflow-hidden ring-1 ring-inset ring-white/10"
+                style={{ backgroundColor: swatch }}
+                aria-label={`${label} colour picker`}
+              >
+                <input
+                  type="color"
+                  value={swatch}
+                  onChange={(e) => updateColor(key, e.target.value)}
+                  className="absolute -inset-1 h-[calc(100%+0.5rem)] w-[calc(100%+0.5rem)] cursor-pointer opacity-0"
+                />
+              </label>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white/80 font-medium">{label}</p>
+                <p className="text-white/35 text-xs">{hint}</p>
+              </div>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => updateColor(key, e.target.value)}
+                aria-label={`${label} hex value`}
+                className={`${inputCls} max-w-[7.5rem] font-mono uppercase ${valid ? '' : 'border-red-500/50'}`}
+                placeholder="#000000"
+                maxLength={7}
+              />
+            </div>
+          )
+        })}
       </Section>
 
       {/* ── Studio ── */}

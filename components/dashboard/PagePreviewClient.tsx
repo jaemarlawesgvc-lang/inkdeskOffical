@@ -49,12 +49,6 @@ function emptyService(): ServiceItem {
 // fallback if a user enters an invalid hex value.
 const FALLBACK_COLORS = { primary: '#000000', secondary: '#111827', accent: '#F97316' } as const
 
-const COLOR_FIELDS = [
-  { key: 'accent', label: 'Accent', hint: 'Buttons, links & highlights' },
-  { key: 'primary', label: 'Primary', hint: 'Main background tone' },
-  { key: 'secondary', label: 'Secondary', hint: 'Secondary surfaces' },
-] as const
-
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
 export function PagePreviewClient({
@@ -179,12 +173,6 @@ export function PagePreviewClient({
       if (!prev?.services) return prev
       return { ...prev, services: prev.services.filter((_, i) => i !== index) }
     })
-  }
-
-  const updateDraftColor = (key: 'primary' | 'secondary' | 'accent', value: string) => {
-    setDraft((prev) =>
-      prev ? { ...prev, colorScheme: { ...prev.colorScheme, [key]: value } } : prev,
-    )
   }
 
   const handleSave = async () => {
@@ -511,54 +499,6 @@ export function PagePreviewClient({
                 className={`${inputCls} resize-none`}
               />
             </div>
-          </div>
-
-          {/* Colour palette */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Colour palette</p>
-              <p className="text-white/40 text-xs mt-1">
-                These colours style your public page. Pick your own, or keep the AI&rsquo;s recommendation.
-              </p>
-            </div>
-            {COLOR_FIELDS.map(({ key, label, hint }) => {
-              const value = (draft.colorScheme?.[key] as string) || FALLBACK_COLORS[key]
-              const valid = HEX_RE.test(value)
-              const swatch = valid ? value : FALLBACK_COLORS[key]
-              return (
-                <div key={key} className="flex items-center gap-3">
-                  {/* Swatch shows the current colour as its background; the
-                      transparent native picker is overlaid so a click anywhere
-                      on the swatch opens the OS colour picker (works reliably
-                      across browsers, unlike a bare styled input[type=color]). */}
-                  <label
-                    className="relative h-10 w-12 shrink-0 rounded-md border border-white/20 cursor-pointer overflow-hidden ring-1 ring-inset ring-white/10"
-                    style={{ backgroundColor: swatch }}
-                    aria-label={`${label} colour picker`}
-                  >
-                    <input
-                      type="color"
-                      value={swatch}
-                      onChange={(e) => updateDraftColor(key, e.target.value)}
-                      className="absolute -inset-1 h-[calc(100%+0.5rem)] w-[calc(100%+0.5rem)] cursor-pointer opacity-0"
-                    />
-                  </label>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/80 font-medium">{label}</p>
-                    <p className="text-white/35 text-xs">{hint}</p>
-                  </div>
-                  <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => updateDraftColor(key, e.target.value)}
-                    aria-label={`${label} hex value`}
-                    className={`${inputCls} max-w-[7.5rem] font-mono uppercase ${valid ? '' : 'border-red-500/50'}`}
-                    placeholder="#000000"
-                    maxLength={7}
-                  />
-                </div>
-              )
-            })}
           </div>
         </div>
       ) : siteData ? (

@@ -172,6 +172,11 @@ export default async function PagePreviewPage() {
           priceTier: (artist.price_tier as string) ?? '££',
           timezone,
           availability,
+          colorScheme: {
+            primary: ((artist.site_data as { colorScheme?: { primary?: string } } | null)?.colorScheme?.primary) ?? '#0a0a0a',
+            secondary: ((artist.site_data as { colorScheme?: { secondary?: string } } | null)?.colorScheme?.secondary) ?? '#111827',
+            accent: ((artist.site_data as { colorScheme?: { accent?: string } } | null)?.colorScheme?.accent) ?? '#d4af37',
+          },
         }}
       />
 

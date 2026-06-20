@@ -253,6 +253,8 @@ export default async function ArtistPage({
     (c) => c.type === 'license' && (!c.expiry_date || c.expiry_date >= today),
   )
 
+  const hasAward = (credentialRows ?? []).some((c) => c.type === 'award')
+
   const publicCredentials = await Promise.all(
     (credentialRows ?? [])
       .filter((c) => c.type === 'award' || c.type === 'publication')
@@ -325,10 +327,7 @@ export default async function ArtistPage({
           isLicensed={isLicensed}
         />
 
-        <PortfolioMarquee images={portfolio} accentColor={accent} />
-
-        <PortfolioSection images={portfolio} accentColor={accent} />
-
+        {/* About now appears before the portfolio (swapped per request). */}
         {(aboutBody || styleTags.length > 0) && (
           <AboutSection
             title={aboutTitle}
@@ -340,11 +339,13 @@ export default async function ArtistPage({
           />
         )}
 
+        <PortfolioMarquee images={portfolio} accentColor={accent} />
+
+        <PortfolioSection images={portfolio} accentColor={accent} />
+
         <ServicesSection services={services} accentColor={accent} pricingNotes={artist.pricing_notes} />
 
         <ReviewsSection reviews={reviews} accentColor={accent} />
-
-        <CredentialsSection credentials={publicCredentials} isLicensed={isLicensed} accentColor={accent} />
 
         <StudioSection
           studioName={artist.studio_name}
@@ -358,6 +359,11 @@ export default async function ArtistPage({
           <div className="px-6 py-12 text-center bg-white/[0.02]">
             <WaitlistButton artistId={artist.id} accentColor={accent} />
           </div>
+        )}
+
+        {/* Credentials sits just above booking, and only when an award exists. */}
+        {hasAward && (
+          <CredentialsSection credentials={publicCredentials} isLicensed={isLicensed} accentColor={accent} />
         )}
 
         <BookingSection

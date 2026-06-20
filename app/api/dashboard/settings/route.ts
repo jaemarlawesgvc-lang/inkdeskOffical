@@ -42,6 +42,14 @@ const schema = z.object({
   emailBookingConfirmation: z.boolean().optional(),
   emailReminders: z.boolean().optional(),
   emailAftercare: z.boolean().optional(),
+  // Colour palette is stored inside the JSON `site_data` column, merged below.
+  colorScheme: z
+    .object({
+      primary: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      secondary: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      accent: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    })
+    .optional(),
 })
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -73,10 +81,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const d = parsed.data
 
-  // Verify artist belongs to user
+  // Verify artist belongs to user (also pull site_data for colour-scheme merge)
   const { data: artist, error: ownershipError } = await supabase
     .from('artists')
-    .select('id')
+    .select('id, site_data')
     .eq('id', d.artistId)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -109,6 +117,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (d.emailAftercare !== undefined) updatePayload.email_aftercare = d.emailAftercare
   // Timezone lives on the artists table (NOT artist_availability).
   if (d.timezone !== undefined) updatePayload.timezone = d.timezone || 'Europe/London'
+
+  // Colour palette is merged into the existing site_data JSON so it persists
+  // independently of the AI-generated content (no services required).
+  if (d.colorScheme !== undefined) {
+    const existingSiteData =
+      (artist.site_data as Record<string, unknown> | null) ?? {}
+    updatePayload.site_data = { ...existingSiteData, colorScheme: d.colorScheme }
+  }
 
   if (Object.keys(updatePayload).length > 0) {
     updatePayload.updated_at = now
