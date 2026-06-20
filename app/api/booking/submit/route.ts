@@ -2,10 +2,7 @@ import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
 import { submitBookingSchema } from '@/lib/validations/booking'
-import {
-  validateHold,
-  generateAccessToken,
-} from '@/lib/booking/availability'
+import { validateHold } from '@/lib/booking/availability'
 import { resolveActivePlan, checkBooleanFeature } from '@/lib/stripe/plans'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -164,8 +161,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // ── 6. Create booking ──
-  const accessToken = generateAccessToken()
-
   // Determine if deposit path is active (artist requires it AND plan allows it)
   const depositCheck = requiresDeposit
     ? checkBooleanFeature(plan, 'stripe_deposits')
@@ -177,6 +172,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // - Deposit path: 'pending' → client pays → webhook sets 'deposit_paid'
   // - Manual path: 'pending' → artist confirms → 'confirmed'
 
+  // bookings.description has a CHECK (length 10–1000). Store null for anything
+  // shorter so a brief note can't reject the booking, and clamp to 1000.
+  const trimmedDescription = (description ?? '').trim()
+  const safeDescription =
+    trimmedDescription.length >= 10 ? trimmedDescription.slice(0, 1000) : null
+
   const { data: booking, error: bookingError } = await supabase
     .from('bookings')
     .insert({
@@ -186,15 +187,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       client_phone: clientPhone || null,
       booking_date: bookingDate,
       booking_time: bookingTime ?? null,
-      duration_hours: durationHours ?? null,
-      description: description || null,
-      reference_images: referenceImagePaths.length > 0 ? referenceImagePaths : null,
+      // duration_hours is NOT NULL and the public form doesn't collect it —
+      // default to a 1-hour slot rather than inserting null.
+      duration_hours: durationHours ?? 1,
+      description: safeDescription,
+      // Correct column is reference_image_paths (text[] NOT NULL, default {}).
+      // Always pass the array — never null or the old `reference_images` name.
+      reference_image_paths: referenceImagePaths,
       status: initialStatus,
       deposit_amount: depositActive ? artist.deposit_amount : null,
       deposit_paid: false,
-      access_token: accessToken,
+      // access_token is a NOT NULL uuid with a DB default. The old code inserted
+      // a 64-char hex string, which is invalid uuid syntax and failed every
+      // insert — let Postgres generate it and read it back for the status link.
     })
-    .select('id, status, deposit_amount')
+    .select('id, status, deposit_amount, access_token')
     .single()
 
   if (bookingError || !booking) {
@@ -241,7 +248,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     depositAmount: number | null
   } = {
     bookingId: booking.id,
-    accessToken,
+    accessToken: booking.access_token as string,
     status: booking.status,
     requiresDeposit: !!depositActive,
     depositAmount: depositActive ? artist.deposit_amount : null,
