@@ -103,7 +103,13 @@ export function StudioLocationPicker({ address, onAddressChange, onCoordsChange 
       ref={inputRef}
       type="text"
       defaultValue={address}
-      onChange={(e) => onAddressChange(e.target.value)}
+      onChange={(e) => {
+        // Manual typing invalidates any previously-selected coordinates.
+        // Coords are re-set only when the user picks an autocomplete suggestion
+        // (place_changed above). This prevents a stale pin from a prior pick.
+        onAddressChange(e.target.value)
+        onCoordsChange(null, null)
+      }}
       className={inputCls}
       placeholder="Start typing your studio address…"
       aria-label="Studio address with location search"

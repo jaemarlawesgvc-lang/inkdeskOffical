@@ -161,6 +161,24 @@ export function HeroSection({
               View the work
             </a>
           </div>
+
+          {/* Instagram link — under the action buttons */}
+          {handle && (
+            <a
+              href={`https://instagram.com/${handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-medium text-white/70 backdrop-blur-sm transition-colors hover:border-white/25 hover:text-white"
+              aria-label={`Follow @${handle} on Instagram`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+              </svg>
+              @{handle} on Instagram
+            </a>
+          )}
         </div>
       </div>
 

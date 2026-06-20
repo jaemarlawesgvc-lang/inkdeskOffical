@@ -14,8 +14,10 @@ export function StudioSection({ studioName, studioAddress, lat, lng, accentColor
   const hasCoords = lat !== null && lng !== null
   if (!studioAddress && !hasCoords) return null
 
-  // What we point Google Maps at: precise coords if we have them, else the address.
-  const query = hasCoords ? `${lat},${lng}` : (studioAddress as string)
+  // Prefer the address the artist actually typed (it's the source of truth and
+  // matches what's shown below the map). Fall back to coordinates only when no
+  // address is set. This avoids a stale pin lingering from an earlier pick.
+  const query = studioAddress ? studioAddress : `${lat},${lng}`
   const encodedQuery = encodeURIComponent(query)
 
   // Keyless interactive embed — works with no API key at all.
@@ -27,10 +29,9 @@ export function StudioSection({ studioName, studioAddress, lat, lng, accentColor
   // If a Google Maps key IS configured, use a crisp static image instead of the
   // interactive iframe (optional upgrade; falls back to the keyless embed).
   const apiKey = clientEnv.googleMapsApiKey
-  const staticMapUrl =
-    apiKey && hasCoords
-      ? `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=640x320&scale=2&markers=color:0xffffff%7C${lat},${lng}&key=${apiKey}`
-      : null
+  const staticMapUrl = apiKey
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodedQuery}&zoom=15&size=640x320&scale=2&markers=color:0xffffff%7C${encodedQuery}&key=${apiKey}`
+    : null
 
   return (
     <section id="studio" className="px-6 py-20 sm:py-28 relative" aria-label="Studio location">
