@@ -57,7 +57,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { data: artist, error: artistError } = await supabase
     .from('artists')
     .select(
-      'id, user_id, display_name, bio, style_tags, portfolio_images(public_url)',
+      'id, user_id, display_name, bio, style_tags, site_data, portfolio_images(public_url)',
     )
     .eq('id', parsed.data.artistId)
     .eq('user_id', user.id)
@@ -129,11 +129,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Extract FAQs from siteData for separate database storage
     const { faqs: generatedFaqs, ...cleanSiteData } = siteData as any
 
+    // Preserve the artist's manually-chosen colour palette across regenerations.
+    // If they've set their own colours, keep them instead of the AI's choice.
+    const existingColorScheme = (artist.site_data as { colorScheme?: unknown } | null)?.colorScheme
+    const mergedSiteData = existingColorScheme
+      ? { ...cleanSiteData, colorScheme: existingColorScheme }
+      : cleanSiteData
+
     // Persist site data
     const { error: updateError } = await supabase
       .from('artists')
       .update({
-        site_data: cleanSiteData,
+        site_data: mergedSiteData,
         site_generated: true,
         onboarding_complete: true,
         updated_at: new Date().toISOString(),
@@ -179,7 +186,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       metadata: { plan, generationNumber: (generationsThisMonth ?? 0) + 1 },
     })
 
-    return NextResponse.json({ ok: true, siteData })
+    return NextResponse.json({ ok: true, siteData: mergedSiteData })
   } catch (err) {
     if (err instanceof GeminiTimeoutError) {
       return NextResponse.json(

@@ -1,6 +1,6 @@
 import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 // Pulls a column name out of either Postgres or PostgREST "missing column" errors.
@@ -95,6 +95,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   if (!artist) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  // Ownership is verified above; perform the writes with the service-role client
+  // so a row-level-security edge case can never silently drop the update (which
+  // would make the dashboard say "saved" while the DB never changes).
+  const db = createSupabaseAdminClient()
+
   const now = new Date().toISOString()
 
   // Build update payload dynamically. Empty strings for text fields are saved as null.
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     //   • PostgREST cache: code PGRST204, "Could not find the 'price_tier' column ..."
     let attempts = 0
     while (attempts < 20) {
-      const { error: updateErr } = await supabase
+      const { error: updateErr } = await db
         .from('artists')
         .update(updatePayload)
         .eq('id', d.artistId)
@@ -159,7 +164,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Resync availability slots only if provided in request body
   if (d.availability !== undefined) {
-    const { error: deleteErr } = await supabase
+    const { error: deleteErr } = await db
       .from('artist_availability')
       .delete()
       .eq('artist_id', d.artistId)
@@ -172,7 +177,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (d.availability.length > 0) {
       // NOTE: artist_availability has no timezone column — timezone is stored
       // on the artists row above. Only insert the columns that exist here.
-      const { error: availError } = await supabase.from('artist_availability').insert(
+      const { error: availError } = await db.from('artist_availability').insert(
         d.availability.map((s) => ({
           artist_id: d.artistId,
           day_of_week: s.dayOfWeek,

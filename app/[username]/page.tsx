@@ -23,6 +23,10 @@ import { JsonLd } from '@/components/public/JsonLd'
 // page went live. Booking pages are low-traffic and must reflect the current
 // published state immediately, so we render dynamically.
 export const dynamic = 'force-dynamic'
+// Belt-and-suspenders for Vercel: never serve cached data for the live page, so
+// edits made in the dashboard always appear immediately on the public page.
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
 // ---------------------------------------------------------------------------
 // Types
