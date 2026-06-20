@@ -58,12 +58,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Ownership verified above. Use the service-role client for the booking reads
+  // and writes so confirm/cancel/complete don't depend on the bookings UPDATE
+  // RLS policy / current_artist_id() helper being present. Every operation is
+  // scoped to this artist's own bookings via .eq('artist_id', artistId).
+  const db = createSupabaseAdminClient()
+
   if (action === 'add_note') {
     if (!note) {
       return NextResponse.json({ error: 'Note is required' }, { status: 422 })
     }
     // Append to existing notes using a simple timestamped format
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('bookings')
       .select('notes')
       .eq('id', bookingId)
@@ -75,7 +81,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ? `${existing.notes}\n[${timestamp}] ${note}`
       : `[${timestamp}] ${note}`
 
-    const { error } = await supabase
+    const { error } = await db
       .from('bookings')
       .update({ notes: newNote, updated_at: new Date().toISOString() })
       .eq('id', bookingId)
@@ -91,14 +97,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Capture the booking date before updating, for the cancellation-recovery notification.
-  const { data: bookingBeforeUpdate } = await supabase
+  const { data: bookingBeforeUpdate } = await db
     .from('bookings')
     .select('booking_date')
     .eq('id', bookingId)
     .eq('artist_id', artistId)
     .single()
 
-  const { error } = await supabase
+  const { error } = await db
     .from('bookings')
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .eq('id', bookingId)
