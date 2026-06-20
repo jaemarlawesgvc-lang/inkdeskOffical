@@ -5,7 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/server'
 import { ConsentFormFilledDocument } from '@/lib/pdf/ConsentFormFilledDocument'
 import { sendEmail } from '@/lib/resend/client'
 import { consentFormSubmittedTemplate } from '@/lib/resend/templates'
-import { clientEnv } from '@/lib/env.client'
+import { getAppUrl } from '@/lib/app-url'
 import { MEDICAL_QUESTIONS } from '@/lib/consent/questions'
 import { z } from 'zod'
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       artistName,
       clientName: data.clientName,
       tattooDescription: data.tattooDescription,
-      dashboardUrl: `${clientEnv.appUrl}/dashboard/consent-forms`,
+      dashboardUrl: `${getAppUrl()}/dashboard/consent-forms`,
       artistEmail,
     })
 

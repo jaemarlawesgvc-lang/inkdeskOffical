@@ -11,7 +11,7 @@ import {
   cancellationOpeningTemplate,
   type BookingEmailData,
 } from '@/lib/resend/templates'
-import { clientEnv } from '@/lib/env.client'
+import { getAppUrl } from '@/lib/app-url'
 
 // ---------------------------------------------------------------------------
 // Shared data loader
@@ -39,7 +39,7 @@ function buildEmailData(
   booking: BookingWithArtist,
   opts: { includeDashboardUrl: boolean; includeStatusUrl: boolean; includeConsentFormUrl?: boolean; includeAftercareGuideUrl?: boolean },
 ): BookingEmailData {
-  const appUrl = clientEnv.appUrl
+  const appUrl = getAppUrl()
 
   return {
     clientName: booking.clientName,
@@ -239,7 +239,7 @@ export async function sendReviewRequest(
   const { subject, html } = reviewRequestTemplate({
     clientName: params.clientName,
     artistName: params.artistName,
-    reviewUrl: `${clientEnv.appUrl}/review?token=${params.reviewToken}`,
+    reviewUrl: `${getAppUrl()}/review?token=${params.reviewToken}`,
   })
 
   return sendEmail({
@@ -272,7 +272,7 @@ export async function sendCancellationOpening(
     clientName: params.clientName,
     artistName: params.artistName,
     openingDate: params.openingDate,
-    bookingUrl: `${clientEnv.appUrl}/${params.artistUsername}?date=${params.openingDate}`,
+    bookingUrl: `${getAppUrl()}/${params.artistUsername}?date=${params.openingDate}`,
   })
 
   return sendEmail({

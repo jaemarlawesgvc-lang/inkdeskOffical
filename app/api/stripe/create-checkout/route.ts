@@ -7,7 +7,7 @@ import {
   createSubscriptionCheckout,
   STRIPE_PRICE_IDS,
 } from '@/lib/stripe/server'
-import { clientEnv } from '@/lib/env.client'
+import { getAppUrl } from '@/lib/app-url'
 import { SUBSCRIPTION_TRIAL_DAYS } from '@/lib/constants'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -40,7 +40,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { plan } = parsed.data
   const priceId = STRIPE_PRICE_IDS[plan]
 
-  // Check if user already has an active subscription
+  // Check if user already has an active PAID subscription.
+  // Every user has a free subscription row (status='active', plan='free')
+  // created at signup — that must NOT block starting a trial. Only an existing
+  // paid (pro/studio) active/trialing subscription blocks a new checkout; those
+  // change plans through the billing portal instead.
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('id, status, plan')
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .in('status', ['active', 'trialing'])
     .maybeSingle()
 
-  if (existingSub) {
+  if (existingSub && existingSub.plan !== 'free') {
     return NextResponse.json(
       {
         error: `You already have an active ${existingSub.plan} subscription. Use the billing portal to change plans.`,
@@ -88,7 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .eq('id', user.id)
     }
 
-    const appUrl = clientEnv.appUrl
+    const appUrl = getAppUrl()
     const checkoutUrl = await createSubscriptionCheckout({
       customerId,
       priceId,

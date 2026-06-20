@@ -8,7 +8,7 @@ import {
   resetPasswordSchema,
 } from '@/lib/validations/auth'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { env } from '@/lib/env'
+import { getAppUrl } from '@/lib/app-url'
 
 interface AuthState {
   success: boolean
@@ -74,7 +74,7 @@ export async function signupAction(
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      emailRedirectTo: `${getAppUrl()}/auth/callback`,
     },
   })
 
@@ -111,7 +111,7 @@ export async function forgotPasswordAction(
   const supabase = createSupabaseServerClient()
 
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback?type=recovery`,
+    redirectTo: `${getAppUrl()}/auth/callback?type=recovery`,
   })
 
   return {
@@ -168,7 +168,7 @@ export async function signInWithGoogle(_formData: FormData): Promise<void> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      redirectTo: `${getAppUrl()}/auth/callback`,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',

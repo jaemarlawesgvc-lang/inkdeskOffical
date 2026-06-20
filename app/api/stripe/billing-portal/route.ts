@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createBillingPortalSession } from '@/lib/stripe/server'
-import { clientEnv } from '@/lib/env.client'
+import { getAppUrl } from '@/lib/app-url'
 
 export async function POST(): Promise<NextResponse> {
   const supabase = await createSupabaseServerClient()
@@ -35,7 +35,7 @@ export async function POST(): Promise<NextResponse> {
   try {
     const portalUrl = await createBillingPortalSession({
       customerId: profile.stripe_customer_id,
-      returnUrl: `${clientEnv.appUrl}/dashboard/settings/billing`,
+      returnUrl: `${getAppUrl()}/dashboard/settings/billing`,
     })
 
     return NextResponse.json({ url: portalUrl })

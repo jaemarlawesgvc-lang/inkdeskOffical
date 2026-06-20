@@ -2,7 +2,7 @@ import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { ResetPasswordSchema } from '@/lib/validations/admin'
-import { env } from '@/lib/env'
+import { getAppUrl } from '@/lib/app-url'
 
 export const runtime = 'nodejs'
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     type: 'recovery',
     email: targetProfile.email,
     options: {
-      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/reset-password`,
+      redirectTo: `${getAppUrl()}/reset-password`,
     },
   })
 
