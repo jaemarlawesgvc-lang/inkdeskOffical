@@ -542,27 +542,6 @@ export function PagePreviewClient({
             </div>
           )}
 
-          {/* Colour scheme */}
-          {siteData.colorScheme && (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-2">
-              <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Colour palette</p>
-              <div className="flex gap-4">
-                {Object.entries(siteData.colorScheme).map(([name, hex]) =>
-                  hex ? (
-                    <div key={name} className="flex items-center gap-2">
-                      <div
-                        className="w-6 h-6 rounded-full border border-white/20"
-                        style={{ background: hex as string }}
-                        aria-label={`${name}: ${hex}`}
-                      />
-                      <span className="text-white/40 text-xs capitalize">{name}</span>
-                    </div>
-                  ) : null,
-                )}
-              </div>
-            </div>
-          )}
-
           {/* SEO */}
           {(siteData.seoTitle || siteData.seoDescription) && (
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-2">

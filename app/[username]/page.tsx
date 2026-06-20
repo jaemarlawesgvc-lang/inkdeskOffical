@@ -257,8 +257,6 @@ export default async function ArtistPage({
     (c) => c.type === 'license' && (!c.expiry_date || c.expiry_date >= today),
   )
 
-  const hasAward = (credentialRows ?? []).some((c) => c.type === 'award')
-
   const publicCredentials = await Promise.all(
     (credentialRows ?? [])
       .filter((c) => c.type === 'award' || c.type === 'publication')
@@ -367,8 +365,9 @@ export default async function ArtistPage({
           </div>
         )}
 
-        {/* Credentials sits just above booking, and only when an award exists. */}
-        {hasAward && (
+        {/* Credentials sits just above booking, shown when any credential
+            (award, publication, or licence) has been added. */}
+        {(publicCredentials.length > 0 || isLicensed) && (
           <CredentialsSection credentials={publicCredentials} isLicensed={isLicensed} accentColor={accent} />
         )}
 
