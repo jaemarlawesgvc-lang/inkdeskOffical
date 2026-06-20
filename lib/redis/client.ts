@@ -1,19 +1,25 @@
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
-import { env } from '@/lib/env'
 
-// This client is constructed at import time, so it's evaluated during
-// `next build`'s page-data collection. If the Upstash vars aren't present in
-// the build environment, the constructor would abort the build. Fall back to
-// harmless placeholders during the build phase only — these are never used to
-// serve a request (runtime env validation in lib/env guarantees the real
-// values are present before any request is handled).
-const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build'
+// Read Upstash vars straight from process.env rather than importing lib/env.
+//
+// This module is imported by the root middleware, which runs on the Edge
+// runtime. Importing lib/env here would pull the FULL server-side env schema
+// (Stripe, Resend, CRON_SECRET, …) into the Edge bundle — and lib/env throws at
+// import if any single one is missing. That made one unset, middleware-
+// irrelevant variable crash every request with MIDDLEWARE_INVOCATION_FAILED.
+// The middleware only needs Upstash, so depend on nothing else.
+//
+// Construction must never throw: if the Upstash vars are absent we fall back to
+// placeholders so the module loads, and the rate-limit calls (which are wrapped
+// in try/catch and fail open) simply no-op instead of taking the app down.
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || 'https://placeholder.upstash.io'
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || 'placeholder-token'
 
 // Initialize Redis client
 export const redis = new Redis({
-  url: env.UPSTASH_REDIS_REST_URL ?? (IS_BUILD ? 'https://placeholder.upstash.io' : ''),
-  token: env.UPSTASH_REDIS_REST_TOKEN ?? (IS_BUILD ? 'placeholder-token' : ''),
+  url: UPSTASH_URL,
+  token: UPSTASH_TOKEN,
 })
 
 // Rate limiters for different types of routes
