@@ -293,7 +293,9 @@ export default async function ArtistPage({
         className="min-h-screen text-white"
         style={{
           backgroundColor: primary,
-          backgroundImage: `radial-gradient(75% 55% at 50% -8%, ${secondary}66 0%, transparent 70%)`,
+          // Full-page gradient from Primary (top) to Secondary (bottom) so both
+          // palette colours are clearly visible. Fixed so it spans the scroll.
+          backgroundImage: `linear-gradient(180deg, ${primary} 0%, ${secondary} 100%)`,
           backgroundAttachment: 'fixed',
         }}
       >

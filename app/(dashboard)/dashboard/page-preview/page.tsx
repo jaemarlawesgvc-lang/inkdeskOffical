@@ -7,7 +7,7 @@ import { resolveActivePlan } from '@/lib/stripe/plans'
 import { PLAN_LIMITS } from '@/lib/stripe/plans'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'My Page' }
+export const metadata: Metadata = { title: 'Edit my page' }
 
 export default async function PagePreviewPage() {
   const supabase = await createSupabaseServerClient()
@@ -132,7 +132,7 @@ export default async function PagePreviewPage() {
     <div className="space-y-8 max-w-4xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">My Page</h1>
+          <h1 className="text-2xl font-bold text-white">Edit my page</h1>
           <p className="text-white/40 text-sm mt-0.5">
             Manage your public artist page details.
           </p>
