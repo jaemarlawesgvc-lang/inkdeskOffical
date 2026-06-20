@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { STYLE_TAG_OPTIONS } from '@/lib/validations/onboarding'
 import { StudioLocationPicker } from '@/components/dashboard/StudioLocationPicker'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
 interface AvailabilitySlot {
   dayOfWeek: number
@@ -29,6 +30,7 @@ interface MyPageData {
   timezone: string
   availability: AvailabilitySlot[]
   colorScheme: { primary: string; secondary: string; accent: string }
+  backgroundImageUrl: string
 }
 
 interface MyPageSettingsFormProps {
@@ -40,7 +42,12 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DEBOUNCE_MS = 1500
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
-const FALLBACK_COLORS = { primary: '#0a0a0a', secondary: '#111827', accent: '#d4af37' } as const
+// Default palette mirrors the InkDesk home page theme (ink-950 / ink-800 / gold-500).
+// Artists can change these, but a fresh page ships with the signature look.
+const FALLBACK_COLORS = { primary: '#080808', secondary: '#1a1a1a', accent: '#ffb700' } as const
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
 const COLOR_FIELDS = [
   { key: 'accent', label: 'Accent', hint: 'Buttons, links & highlights' },
   { key: 'primary', label: 'Primary', hint: 'Page background' },
@@ -162,6 +169,50 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
     setData((prev) => ({ ...prev, colorScheme: { ...prev.colorScheme, [key]: value } }))
   }
 
+  // ── Custom background image ──
+  const [bgUploading, setBgUploading] = useState(false)
+  const [bgError, setBgError] = useState<string | null>(null)
+  const bgInputRef = useRef<HTMLInputElement>(null)
+
+  const handleBackgroundFile = async (file: File | null | undefined) => {
+    if (!file) return
+    setBgError(null)
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setBgError('Background must be a JPEG, PNG or WebP image.')
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setBgError('Background image must be under 10MB.')
+      return
+    }
+
+    setBgUploading(true)
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
+      // Stored in the existing public portfolio-images bucket under the artist's
+      // own folder (same RLS path as portfolio uploads) — no new bucket needed.
+      const path = `${artistId}/background-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('portfolio-images')
+        .upload(path, file, { cacheControl: '31536000', upsert: false, contentType: file.type })
+
+      if (uploadError) throw new Error(uploadError.message)
+
+      const { data: urlData } = supabase.storage.from('portfolio-images').getPublicUrl(path)
+      // Setting this triggers the debounced auto-save, which persists the URL.
+      set('backgroundImageUrl', urlData.publicUrl)
+      toast.success('Background uploaded')
+    } catch (err) {
+      setBgError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
+    } finally {
+      setBgUploading(false)
+      if (bgInputRef.current) bgInputRef.current.value = ''
+    }
+  }
+
   const toggleStyleTag = (tag: string) => {
     const next = data.styleTags.includes(tag)
       ? data.styleTags.filter((t) => t !== tag)
@@ -266,6 +317,68 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
             </div>
           )
         })}
+      </Section>
+
+      {/* ── Background image ── */}
+      <Section
+        title="Background image"
+        description="Upload your own hero background. Sits behind your profile with a dark overlay so text stays readable. Optional — leave empty to use your palette."
+      >
+        {data.backgroundImageUrl ? (
+          <div className="space-y-3">
+            <div className="relative overflow-hidden rounded-xl border border-white/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={data.backgroundImageUrl}
+                alt="Your page background"
+                className="h-40 w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" aria-hidden="true" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => bgInputRef.current?.click()}
+                disabled={bgUploading}
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-50"
+              >
+                {bgUploading ? 'Uploading…' : 'Replace'}
+              </button>
+              <button
+                type="button"
+                onClick={() => set('backgroundImageUrl', '')}
+                disabled={bgUploading}
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white/70 transition-colors hover:border-red-500/50 hover:text-red-300 disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => bgInputRef.current?.click()}
+            disabled={bgUploading}
+            className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-white/[0.02] px-6 py-10 text-center transition-colors hover:border-white/40 hover:bg-white/[0.04] disabled:opacity-50"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-6 w-6 text-white/50" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+            </svg>
+            <span className="text-sm font-medium text-white">
+              {bgUploading ? 'Uploading…' : 'Upload a background image'}
+            </span>
+            <span className="text-xs text-white/40">JPEG, PNG or WebP — up to 10MB</span>
+          </button>
+        )}
+
+        <input
+          ref={bgInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => void handleBackgroundFile(e.target.files?.[0])}
+        />
+        {bgError && <p className="text-sm text-red-400">{bgError}</p>}
       </Section>
 
       {/* ── Studio ── */}

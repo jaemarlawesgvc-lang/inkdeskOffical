@@ -50,6 +50,8 @@ const schema = z.object({
       accent: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     })
     .optional(),
+  // Custom hero background image — also stored inside `site_data`. Empty string clears it.
+  backgroundImageUrl: z.string().url().max(2048).or(z.literal('')).optional(),
 })
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -123,12 +125,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Timezone lives on the artists table (NOT artist_availability).
   if (d.timezone !== undefined) updatePayload.timezone = d.timezone || 'Europe/London'
 
-  // Colour palette is merged into the existing site_data JSON so it persists
-  // independently of the AI-generated content (no services required).
-  if (d.colorScheme !== undefined) {
+  // Colour palette + custom background are merged into the existing site_data
+  // JSON so they persist independently of the AI-generated content.
+  if (d.colorScheme !== undefined || d.backgroundImageUrl !== undefined) {
     const existingSiteData =
       (artist.site_data as Record<string, unknown> | null) ?? {}
-    updatePayload.site_data = { ...existingSiteData, colorScheme: d.colorScheme }
+    const merged: Record<string, unknown> = { ...existingSiteData }
+    if (d.colorScheme !== undefined) merged.colorScheme = d.colorScheme
+    if (d.backgroundImageUrl !== undefined) {
+      merged.backgroundImageUrl = d.backgroundImageUrl || null
+    }
+    updatePayload.site_data = merged
   }
 
   if (Object.keys(updatePayload).length > 0) {

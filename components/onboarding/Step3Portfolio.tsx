@@ -52,17 +52,38 @@ export function Step3Portfolio({
   )
   const [dragSrcId, setDragSrcId] = useState<string | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [rejectNote, setRejectNote] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = getSupabaseBrowserClient()
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
+      setRejectNote(null)
 
+      // Validate first so we can tell the user *why* a file didn't upload
+      // (previously rejected files were silently skipped — "nothing happens").
+      const accepted: File[] = []
+      const rejected: string[] = []
       for (const file of Array.from(files)) {
-        if (!ALLOWED_TYPES.includes(file.type)) continue
-        if (file.size > MAX_FILE_SIZE) continue
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          rejected.push(`${file.name || 'file'} (must be JPEG, PNG or WebP)`)
+        } else if (file.size > MAX_FILE_SIZE) {
+          rejected.push(`${file.name || 'file'} (over 10MB)`)
+        } else {
+          accepted.push(file)
+        }
+      }
 
+      if (rejected.length > 0) {
+        setRejectNote(
+          rejected.length === 1
+            ? `Couldn't add ${rejected[0]}.`
+            : `Couldn't add ${rejected.length} files: ${rejected.join(', ')}.`,
+        )
+      }
+
+      for (const file of accepted) {
         const id = generateId()
         const previewUrl = URL.createObjectURL(file)
 
@@ -79,7 +100,7 @@ export function Step3Portfolio({
           },
         ])
 
-        const ext = file.name.split('.').pop() ?? 'jpg'
+        const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
         const path = `${artistId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
         const { error: uploadError } = await supabase.storage
@@ -105,13 +126,15 @@ export function Step3Portfolio({
           .from('portfolio-images')
           .getPublicUrl(path)
 
+        // Use the live item count for display_order (not the stale closure
+        // value, which gave every concurrent upload the same order).
         const { data: row, error: dbError } = await supabase
           .from('portfolio_images')
           .insert({
             artist_id: artistId,
             storage_path: path,
             public_url: urlData.publicUrl,
-            display_order: items.length,
+            display_order: Date.now(),
             caption: '',
           })
           .select('id, storage_path, public_url, display_order, caption')
@@ -128,21 +151,24 @@ export function Step3Portfolio({
           continue
         }
 
+        // Swap the local object-URL preview for the stored public URL so the
+        // image keeps rendering after the blob is revoked / page reloads.
         setItems((prev) =>
-          prev.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  storagePath: row.storage_path,
-                  publicUrl: row.public_url,
-                  status: 'done',
-                }
-              : item,
-          ),
+          prev.map((item) => {
+            if (item.id !== id) return item
+            if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+            return {
+              ...item,
+              storagePath: row.storage_path,
+              publicUrl: row.public_url,
+              previewUrl: row.public_url,
+              status: 'done',
+            }
+          }),
         )
       }
     },
-    [artistId, items.length, supabase],
+    [artistId, supabase],
   )
 
   const handleCaptionChange = (id: string, caption: string) => {
@@ -234,6 +260,23 @@ export function Step3Portfolio({
           onChange={(e) => void handleFiles(e.target.files)}
         />
       </div>
+
+      {/* Rejected-file notice */}
+      {rejectNote && (
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-lg border border-crimson-500/30 bg-crimson-500/10 px-4 py-3 text-sm text-crimson-400"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true">
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {rejectNote}
+        </div>
+      )}
 
       {/* Count */}
       {items.length > 0 && (

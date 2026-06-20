@@ -39,6 +39,7 @@ interface SiteData {
   seoTitle?: string
   seoDescription?: string
   colorScheme?: { primary?: string; secondary?: string; accent?: string }
+  backgroundImageUrl?: string | null
 }
 
 interface ArtistRecord {
@@ -63,7 +64,7 @@ interface ArtistRecord {
   profiles: { email: string } | null
 }
 
-const DEFAULT_ACCENT = '#d4af37' // gold
+const DEFAULT_ACCENT = '#ffb700' // gold-500 — InkDesk home theme
 
 // ---------------------------------------------------------------------------
 // Data loader (shared by page + generateMetadata)
@@ -189,8 +190,10 @@ export default async function ArtistPage({
   const accent = site.colorScheme?.accent ?? DEFAULT_ACCENT
   // Primary themes the page background; secondary adds an atmospheric tint.
   // Every section is translucent, so they inherit these automatically.
-  const primary = site.colorScheme?.primary ?? '#0a0a0a'
-  const secondary = site.colorScheme?.secondary ?? '#111827'
+  const primary = site.colorScheme?.primary ?? '#080808'
+  const secondary = site.colorScheme?.secondary ?? '#1a1a1a'
+  // Optional artist-uploaded hero background (falls back to portfolio image).
+  const backgroundImageUrl = site.backgroundImageUrl ?? null
 
   const portfolio = (artist.portfolio_images ?? [])
     .slice()
@@ -321,6 +324,7 @@ export default async function ArtistPage({
           ctaText={heroCta}
           accentColor={accent}
           primaryColor={primary}
+          backgroundImageUrl={backgroundImageUrl}
           artistName={name}
           instagramHandle={artist.instagram_handle}
           styleTags={styleTags}

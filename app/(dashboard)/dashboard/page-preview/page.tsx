@@ -173,10 +173,12 @@ export default async function PagePreviewPage() {
           timezone,
           availability,
           colorScheme: {
-            primary: ((artist.site_data as { colorScheme?: { primary?: string } } | null)?.colorScheme?.primary) ?? '#0a0a0a',
-            secondary: ((artist.site_data as { colorScheme?: { secondary?: string } } | null)?.colorScheme?.secondary) ?? '#111827',
-            accent: ((artist.site_data as { colorScheme?: { accent?: string } } | null)?.colorScheme?.accent) ?? '#d4af37',
+            primary: ((artist.site_data as { colorScheme?: { primary?: string } } | null)?.colorScheme?.primary) ?? '#080808',
+            secondary: ((artist.site_data as { colorScheme?: { secondary?: string } } | null)?.colorScheme?.secondary) ?? '#1a1a1a',
+            accent: ((artist.site_data as { colorScheme?: { accent?: string } } | null)?.colorScheme?.accent) ?? '#ffb700',
           },
+          backgroundImageUrl:
+            ((artist.site_data as { backgroundImageUrl?: string | null } | null)?.backgroundImageUrl) ?? '',
         }}
       />
 

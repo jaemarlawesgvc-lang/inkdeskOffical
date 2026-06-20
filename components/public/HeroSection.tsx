@@ -11,6 +11,8 @@ interface HeroSectionProps {
   ctaText: string
   accentColor: string
   primaryColor?: string
+  /** Artist-uploaded hero background. Falls back to the first portfolio image. */
+  backgroundImageUrl?: string | null
   artistName: string
   instagramHandle?: string | null
   styleTags?: string[]
@@ -32,6 +34,7 @@ export function HeroSection({
   ctaText,
   accentColor,
   primaryColor = '#000000',
+  backgroundImageUrl = null,
   artistName,
   instagramHandle,
   styleTags = [],
@@ -42,7 +45,10 @@ export function HeroSection({
   isLicensed = false,
 }: HeroSectionProps) {
   const avatar = images[0] ?? null
-  const backdrop = images[0] ?? null
+  // Prefer the artist's uploaded background; otherwise fall back to their first
+  // portfolio image as an atmospheric backdrop.
+  const backdropUrl = backgroundImageUrl || images[0]?.publicUrl || null
+  const customBackground = Boolean(backgroundImageUrl)
   const handle = instagramHandle?.replace(/^@/, '') || null
 
   const stats: Stat[] = []
@@ -52,10 +58,30 @@ export function HeroSection({
   return (
     <section className="relative flex min-h-screen items-center overflow-hidden" style={{ backgroundColor: primaryColor }} aria-label="Profile">
       {/* ── Atmospheric backdrop ── */}
-      {backdrop ? (
+      {backdropUrl ? (
         <div className="absolute inset-0" aria-hidden="true">
-          <Image src={backdrop.publicUrl} alt="" fill priority sizes="100vw" className="scale-110 object-cover blur-2xl opacity-40 animate-ken-burns" />
-          <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}b3, ${primaryColor}d9, ${primaryColor})` }} />
+          <Image
+            src={backdropUrl}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className={
+              customBackground
+                ? 'object-cover opacity-60'
+                : 'scale-110 object-cover blur-2xl opacity-40 animate-ken-burns'
+            }
+          />
+          {/* Gradient overlay keeps the profile card legible over any image.
+              A custom background shows through more than a blurred portfolio. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: customBackground
+                ? `linear-gradient(to bottom, ${primaryColor}66, ${primaryColor}cc, ${primaryColor})`
+                : `linear-gradient(to bottom, ${primaryColor}b3, ${primaryColor}d9, ${primaryColor})`,
+            }}
+          />
         </div>
       ) : (
         <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}, ${primaryColor})` }} aria-hidden="true" />

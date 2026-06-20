@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { step2Schema, type Step2Values, STYLE_TAG_OPTIONS } from '@/lib/validations/onboarding'
@@ -31,6 +32,8 @@ export function Step2Profile({ defaultValues, onNext, onBack, isSaving }: Step2P
     handleSubmit,
     control,
     watch,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting, isValid },
   } = useForm<Step2Values>({
     resolver: zodResolver(step2Schema),
@@ -45,6 +48,38 @@ export function Step2Profile({ defaultValues, onNext, onBack, isSaving }: Step2P
 
   const bio = watch('bio') ?? ''
   const busy = isSubmitting || isSaving
+
+  // ── AI bio: blank → generate from scratch, otherwise enhance the draft. ──
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+
+  const handleEnhanceBio = async () => {
+    if (aiBusy) return
+    setAiError(null)
+    setAiBusy(true)
+    try {
+      const res = await fetch('/api/onboarding/generate-bio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: getValues('displayName'),
+          bio: getValues('bio'),
+          styleTags: getValues('styleTags'),
+          instagramHandle: getValues('instagramHandle'),
+        }),
+      })
+      const json = (await res.json()) as { bio?: string; error?: string }
+      if (!res.ok || !json.bio) {
+        throw new Error(json.error ?? 'Could not generate a bio. Please try again.')
+      }
+      // Populate but keep it fully editable — just sets the field value.
+      setValue('bio', json.bio, { shouldValidate: true, shouldDirty: true, shouldTouch: true })
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Could not generate a bio. Please try again.')
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   return (
     <form onSubmit={handleSubmit(onNext)} noValidate className="space-y-8">
@@ -76,19 +111,43 @@ export function Step2Profile({ defaultValues, onNext, onBack, isSaving }: Step2P
 
       {/* Bio */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <FieldLabel htmlFor="bio">Bio</FieldLabel>
-          <CharCount value={bio.length} max={BIO_MAX} />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleEnhanceBio}
+              disabled={aiBusy || busy}
+              data-tour="ai-bio"
+              className="inline-flex items-center gap-1.5 rounded-full border border-gold-500/40 bg-gold-500/10 px-3 py-1 text-xs font-semibold text-gold-300 transition-colors duration-150 hover:border-gold-500/70 hover:bg-gold-500/15 hover:text-gold-200 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={bio.trim() ? 'Enhance bio with AI' : 'Generate bio with AI'}
+            >
+              {aiBusy ? (
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                  <path d="M10 1.5l1.6 4.3 4.4 1.7-4.4 1.7L10 13.5l-1.6-4.3L4 7.5l4.4-1.7L10 1.5zM4.5 12.5l.8 2.1 2.2.8-2.2.8-.8 2.1-.8-2.1-2.2-.8 2.2-.8.8-2.1zM15.5 11l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6z" />
+                </svg>
+              )}
+              {aiBusy ? 'Writing…' : bio.trim() ? 'Enhance with AI' : 'Generate with AI'}
+            </button>
+            <CharCount value={bio.length} max={BIO_MAX} />
+          </div>
         </div>
         <textarea
           id="bio"
           rows={4}
           maxLength={BIO_MAX}
-          placeholder="Tell clients about your style, experience, and what makes your work unique…"
+          placeholder="Tell clients about your style, experience, and what makes your work unique — or let AI draft it for you."
           className={textareaClass}
           aria-describedby={errors.bio ? 'bio-error' : undefined}
           {...register('bio')}
         />
+        <Hint>AI fills this in for you — you can edit every word before continuing.</Hint>
+        {aiError && <FieldError id="bio-ai-error">{aiError}</FieldError>}
         {errors.bio && <FieldError id="bio-error">{errors.bio.message}</FieldError>}
       </div>
 
@@ -131,9 +190,9 @@ export function Step2Profile({ defaultValues, onNext, onBack, isSaving }: Step2P
         )}
       </div>
 
-      {/* Instagram handle */}
+      {/* Instagram profile */}
       <div className="space-y-2">
-        <FieldLabel htmlFor="instagramHandle">Instagram handle</FieldLabel>
+        <FieldLabel htmlFor="instagramHandle">Instagram Profile</FieldLabel>
         <div className={prefixWrapClass}>
           <span className="select-none border-r border-ink-700 bg-ink-950/40 py-3 px-4 text-sm text-ink-400">
             @
@@ -143,7 +202,7 @@ export function Step2Profile({ defaultValues, onNext, onBack, isSaving }: Step2P
             type="text"
             autoComplete="off"
             autoCapitalize="none"
-            placeholder="yourhandle"
+            placeholder="your.username"
             className="flex-1 bg-transparent py-3 px-3 text-sm text-parchment-100 placeholder:text-ink-600 focus:outline-none"
             aria-describedby={errors.instagramHandle ? 'instagram-error' : undefined}
             {...register('instagramHandle')}

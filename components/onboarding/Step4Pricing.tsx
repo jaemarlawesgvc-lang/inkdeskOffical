@@ -73,7 +73,12 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
     defaultValues: {
       hourlyRate: defaultValues.hourlyRate ?? undefined,
       depositAmount: defaultValues.depositAmount ?? undefined,
-      depositRequired: defaultValues.depositRequired ?? true,
+      // Deposits are optional. Only pre-tick the toggle when the artist has
+      // actually set a deposit amount — a brand-new artist row defaults
+      // deposit_required=true in the DB, which previously blocked this step
+      // (toggle on + empty amount = invalid form). Now it starts off.
+      depositRequired:
+        defaultValues.depositAmount != null && (defaultValues.depositRequired ?? false),
       timezone: defaultValues.timezone ?? detectTimezone(),
       availability: defaultValues.availability ?? [],
     },
@@ -152,9 +157,12 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
       <div className="space-y-4 rounded-xl border border-ink-800 bg-ink-900/30 p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-parchment-200">Require a deposit</p>
+            <p className="text-sm font-medium text-parchment-200">
+              Require a deposit <span className="font-normal text-ink-500">· optional</span>
+            </p>
             <p className="mt-0.5 text-xs text-ink-500">
               Clients pay upfront to confirm — fewer no-shows, committed bookings.
+              Leave this off to continue without a deposit.
             </p>
           </div>
           <Controller

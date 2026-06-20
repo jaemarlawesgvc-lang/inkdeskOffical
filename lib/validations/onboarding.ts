@@ -142,7 +142,7 @@ export const step4Schema = z
       .max(9999.99, 'Deposit amount too large')
       .nullable()
       .optional(),
-    depositRequired: z.boolean().default(true),
+    depositRequired: z.boolean().default(false),
     timezone: z
       .string()
       .min(1, 'Timezone is required')

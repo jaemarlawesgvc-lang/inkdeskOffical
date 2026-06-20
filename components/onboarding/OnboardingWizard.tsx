@@ -9,6 +9,8 @@ import { Step2Profile } from '@/components/onboarding/Step2Profile'
 import { Step3Portfolio } from '@/components/onboarding/Step3Portfolio'
 import { Step4Pricing } from '@/components/onboarding/Step4Pricing'
 import { Step5GenerateSite } from '@/components/onboarding/Step5GenerateSite'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { SupportModal } from '@/components/dashboard/SupportModal'
 import type {
   Step1Values,
   Step2Values,
@@ -223,7 +225,7 @@ export function OnboardingWizard({ artist }: OnboardingWizardProps) {
               books, and gets you ready to take deposits — no design work required.
             </p>
 
-            <div className="mt-10">
+            <div className="mt-10" data-tour="rail">
               <StepRail currentStep={currentStep} />
             </div>
           </div>
@@ -245,7 +247,7 @@ export function OnboardingWizard({ artist }: OnboardingWizardProps) {
           </div>
 
           {/* Mobile horizontal progress */}
-          <div className="mb-10 lg:hidden">
+          <div className="mb-10 lg:hidden" data-tour="progress">
             <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} labels={STEP_LABELS} />
           </div>
 
@@ -256,7 +258,7 @@ export function OnboardingWizard({ artist }: OnboardingWizardProps) {
           </div>
 
           <div className="flex flex-1 flex-col justify-center">
-            <div className="mx-auto w-full max-w-xl">
+            <div className="mx-auto w-full max-w-xl" data-tour="form">
               {/* Persistent save error banner */}
               {saveError && (
                 <div
@@ -331,6 +333,17 @@ export function OnboardingWizard({ artist }: OnboardingWizardProps) {
           </div>
         </main>
       </div>
+
+      {/* Floating "Get help" — opens the AI assistant for anything they're unsure of */}
+      <div
+        data-tour="help"
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center rounded-full border border-gold-500/30 bg-ink-900/90 px-1 py-0.5 shadow-lg backdrop-blur-md"
+      >
+        <SupportModal />
+      </div>
+
+      {/* First-run welcome popup + spotlight walkthrough */}
+      <OnboardingTour />
     </div>
   )
 }

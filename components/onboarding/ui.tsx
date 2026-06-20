@@ -229,6 +229,7 @@ export function WizardNav({
         type={submitType}
         onClick={submitType === 'button' ? onSubmit : undefined}
         disabled={disabled || busy}
+        data-tour="continue"
         className={buttonVariants({
           variant: 'primary',
           size: 'lg',
