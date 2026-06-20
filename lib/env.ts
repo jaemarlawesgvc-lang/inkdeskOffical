@@ -141,49 +141,43 @@ export type Env = z.infer<typeof schema>
 function validateEnv(): Env {
   const result = schema.safeParse(process.env)
 
-  if (!result.success) {
-    const issues = result.error.issues
-      .map((issue) => `  ✗  ${issue.path.join('.')}: ${issue.message}`)
-      .join('\n')
+  if (result.success) return result.data
 
-    // During `next build`, Next.js imports every route module to collect page
-    // data. That triggers this validation even though the runtime secrets
-    // aren't needed just to compile. If a variable is absent in the build
-    // environment, throwing here aborts the whole build with the opaque
-    // "Failed to collect page data for /auth/callback". Don't fail the build
-    // for this — validation still fires loudly at real server startup
-    // (instrumentation.ts) and on first request, so misconfiguration can never
-    // silently serve traffic.
-    if (process.env.NEXT_PHASE === 'phase-production-build') {
-      console.warn(
-        '[InkDesk] Skipping env validation during build (these vars are only ' +
-          'needed at runtime — set them in Vercel before the app serves ' +
-          `requests):\n${issues}`,
-      )
-      return process.env as unknown as Env
-    }
+  const issues = result.error.issues
+    .map((issue) => `  ✗  ${issue.path.join('.')}: ${issue.message}`)
+    .join('\n')
 
-    // ASCII-box error is deliberately loud — misconfiguration must never
-    // silently reach production at runtime.
-    throw new Error(
-      [
-        '',
-        '╔══════════════════════════════════════════════════════════════════╗',
-        '║       INKDESK — ENVIRONMENT VARIABLE VALIDATION FAILED          ║',
-        '╚══════════════════════════════════════════════════════════════════╝',
-        '',
-        'The following variables are missing or invalid:',
-        '',
-        issues,
-        '',
-        '  ▸ Copy .env.example → .env.local and fill in each value.',
-        '  ▸ For production, set these in Vercel Project Settings → Environment Variables.',
-        '',
-      ].join('\n'),
-    )
-  }
+  // Previously this THREW, which hard-crashed every route that imports `env`
+  // the moment a single variable was unset — including routes that don't use
+  // that variable (e.g. /login 500ing because CRON_SECRET or a Stripe key is
+  // missing). That made the very common "partially configured" state — Supabase
+  // set but third-party keys not yet — impossible to run, and it also broke the
+  // build and the Edge middleware.
+  //
+  // Instead we log loudly and continue with the raw environment. Pages render,
+  // and only the features that genuinely need a missing variable fail, at their
+  // own call site (e.g. a Stripe checkout, a Resend email), rather than taking
+  // down the whole app. Set every variable in Vercel → Settings → Environment
+  // Variables (then redeploy) for full functionality.
+  console.error(
+    [
+      '',
+      '╔══════════════════════════════════════════════════════════════════╗',
+      '║   INKDESK — ENVIRONMENT VALIDATION WARNINGS (app still booting)  ║',
+      '╚══════════════════════════════════════════════════════════════════╝',
+      '',
+      'The following variables are missing or invalid. Features that depend on',
+      'them will not work until they are set:',
+      '',
+      issues,
+      '',
+      '  ▸ Set these in Vercel → Project → Settings → Environment Variables,',
+      '    then redeploy. NEXT_PUBLIC_* vars only take effect on a fresh build.',
+      '',
+    ].join('\n'),
+  )
 
-  return result.data
+  return process.env as unknown as Env
 }
 
 /**
