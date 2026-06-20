@@ -87,7 +87,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .eq('id', bookingId)
       .eq('artist_id', artistId)
 
-    if (error) return NextResponse.json({ error: 'Failed to save note' }, { status: 500 })
+    if (error) {
+      console.error('[booking-action] note update failed:', error.message)
+      return NextResponse.json({ error: error.message || 'Failed to save note' }, { status: 500 })
+    }
     return NextResponse.json({ ok: true })
   }
 
@@ -110,7 +113,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq('id', bookingId)
     .eq('artist_id', artistId)
 
-  if (error) return NextResponse.json({ error: 'Update failed' }, { status: 500 })
+  if (error) {
+    console.error(`[booking-action] ${action} failed:`, error.message)
+    return NextResponse.json({ error: error.message || 'Update failed' }, { status: 500 })
+  }
 
   if (action === 'cancel' && bookingBeforeUpdate) {
     // Fire-and-forget: notify pending/waitlisted clients of the freed-up slot.
