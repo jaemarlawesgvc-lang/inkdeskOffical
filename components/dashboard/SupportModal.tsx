@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 const SUPPORT_EMAIL = 'support@inkdesk.live'
 
@@ -9,24 +9,53 @@ type Msg = { role: 'user' | 'assistant'; content: string }
 const GREETING: Msg = {
   role: 'assistant',
   content:
-    "Hi! I'm your InkDesk assistant 👋  Ask me how to do anything — set up your page, take bookings, add credentials, change your colours, upgrade… If you'd rather talk to a person, just say so.",
+    "Hi! I'm your InkDesk assistant. Ask me how to do anything - set up your page, take bookings, add credentials, change your colours, upgrade, and more. If you'd rather talk to a person, just say so.",
 }
 
-// Render assistant text safely: preserve line breaks and turn any email address
-// into a clickable mailto link (opens the visitor's email client).
-const EMAIL_SPLIT = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
+// Render assistant text: keep line breaks, render **bold**, and turn any email
+// address into a clickable mailto link (opens the visitor's email client).
+const EMAIL_RE = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g
 const isEmail = (s: string) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(s)
 
-function renderRich(text: string) {
-  return text.split(EMAIL_SPLIT).map((part, i) =>
+function linkifyEmails(text: string, keyBase: string): ReactNode[] {
+  return text.split(EMAIL_RE).map((part, i) =>
     isEmail(part) ? (
-      <a key={i} href={`mailto:${part}`} className="font-medium text-white underline underline-offset-2 hover:text-white/80">
+      <a key={`${keyBase}-${i}`} href={`mailto:${part}`} className="font-medium text-white underline underline-offset-2 hover:text-white/80">
         {part}
       </a>
     ) : (
-      <span key={i}>{part}</span>
+      <span key={`${keyBase}-${i}`}>{part}</span>
     ),
   )
+}
+
+function renderInline(text: string, keyBase: string): ReactNode[] {
+  const out: ReactNode[] = []
+  const re = /\*\*([^*]+)\*\*/g
+  let last = 0
+  let n = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const full = m[0] ?? ''
+    const inner = m[1] ?? ''
+    if (m.index > last) out.push(...linkifyEmails(text.slice(last, m.index), `${keyBase}-p${n++}`))
+    out.push(<strong key={`${keyBase}-b${n++}`}>{linkifyEmails(inner, `${keyBase}-s${n}`)}</strong>)
+    last = m.index + full.length
+  }
+  if (last < text.length) out.push(...linkifyEmails(text.slice(last), `${keyBase}-p${n++}`))
+  return out
+}
+
+function renderRich(text: string): ReactNode[] {
+  // Strip common markdown bullet/heading markers the model sometimes adds, then
+  // render each line with inline bold + email links and explicit line breaks.
+  const lines = text.replace(/^\s*#{1,6}\s*/gm, '').split('\n')
+  return lines.map((line, i) => (
+    <span key={i}>
+      {renderInline(line.replace(/^\s*[-*]\s+/, '• '), `l${i}`)}
+      {i < lines.length - 1 ? <br /> : null}
+    </span>
+  ))
 }
 
 export function SupportModal() {
@@ -44,13 +73,22 @@ export function SupportModal() {
     if (open) setView('menu')
   }, [open])
 
-  // Keep the transcript scrolled to the latest message.
+  // When the chat opens, start at the TOP so the greeting reads from line one
+  // (don't jump to the bottom and clip it).
   useEffect(() => {
     if (view === 'chat') {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+      scrollRef.current?.scrollTo({ top: 0 })
       inputRef.current?.focus()
     }
-  }, [messages, view, sending])
+  }, [view])
+
+  // Once a conversation is going, keep it pinned to the newest message.
+  useEffect(() => {
+    if (view === 'chat' && messages.length > 1) {
+      const el = scrollRef.current
+      el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [messages, sending, view])
 
   // Escape to close.
   useEffect(() => {
@@ -180,7 +218,7 @@ export function SupportModal() {
             {/* ── Chat view ── */}
             {view === 'chat' && (
               <>
-                <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                <div ref={scrollRef} className="min-h-[15rem] flex-1 space-y-3 overflow-y-auto px-4 py-4">
                   {messages.map((m, i) => (
                     <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                       <div
