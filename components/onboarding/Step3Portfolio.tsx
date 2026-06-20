@@ -132,40 +132,20 @@ export function Step3Portfolio({
           .from('portfolio-images')
           .getPublicUrl(path)
 
-        const { data: row, error: dbError } = await supabase
-          .from('portfolio_images')
-          .insert({
-            artist_id: artistId,
-            storage_path: path,
-            public_url: urlData.publicUrl,
-            display_order: displayOrder,
-            caption: '',
-          })
-          .select('id, storage_path, public_url, display_order, caption')
-          .single()
-
-        if (dbError || !row) {
-          setItems((prev) =>
-            prev.map((item) =>
-              item.id === id
-                ? { ...item, status: 'error', error: dbError?.message ?? 'Failed to save image' }
-                : item,
-            ),
-          )
-          continue
-        }
-
-        // Swap the local object-URL preview for the stored public URL so the
-        // image keeps rendering after the blob is revoked / page reloads.
+        // The portfolio_images DB row is written server-side (with proper auth,
+        // bypassing the browser RLS limitations) when the artist clicks
+        // Continue — see /api/onboarding/save-step. Here we only need the
+        // storage path + public URL. Swap the local blob preview for the public
+        // URL so the image keeps rendering after the blob is revoked.
         setItems((prev) =>
           prev.map((item) => {
             if (item.id !== id) return item
             if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
             return {
               ...item,
-              storagePath: row.storage_path,
-              publicUrl: row.public_url,
-              previewUrl: row.public_url,
+              storagePath: path,
+              publicUrl: urlData.publicUrl,
+              previewUrl: urlData.publicUrl,
               status: 'done',
             }
           }),
@@ -182,8 +162,12 @@ export function Step3Portfolio({
   const handleRemove = async (id: string) => {
     const item = items.find((i) => i.id === id)
     setItems((prev) => prev.filter((i) => i.id !== id))
+    if (item?.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+    // Best-effort: remove the stored object. The DB rows are re-synced
+    // server-side on Continue, so we don't touch the portfolio_images table
+    // from the browser (its RLS has no delete policy for artists anyway).
     if (item?.storagePath) {
-      await supabase.from('portfolio_images').delete().eq('storage_path', item.storagePath)
+      await supabase.storage.from('portfolio-images').remove([item.storagePath])
     }
   }
 

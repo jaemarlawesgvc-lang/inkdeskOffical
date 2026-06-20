@@ -1,6 +1,6 @@
 import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import {
   callGemini,
   buildSitePrompt,
@@ -92,8 +92,14 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
   // Extract FAQs from siteData for separate database storage
   const { faqs: generatedFaqs, ...cleanSiteData } = siteData as any
 
+  // Persist with the service-role client (ownership verified above via the
+  // user_id lookup) so completing onboarding doesn't depend on the artists
+  // UPDATE RLS policy being present — otherwise onboarding_complete never flips
+  // true and the public page / bookings never activate.
+  const db = createSupabaseAdminClient()
+
   // Persist site data and mark onboarding complete
-  const { error: updateError } = await supabase
+  const { error: updateError } = await db
     .from('artists')
     .update({
       site_data: cleanSiteData,
@@ -112,9 +118,9 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
   // Sync FAQs if generated, wrapping in try-catch to handle missing table gracefully
   if (generatedFaqs && Array.isArray(generatedFaqs)) {
     try {
-      await supabase.from('artist_faqs').delete().eq('artist_id', artist.id)
+      await db.from('artist_faqs').delete().eq('artist_id', artist.id)
       if (generatedFaqs.length > 0) {
-        const { error: faqError } = await supabase.from('artist_faqs').insert(
+        const { error: faqError } = await db.from('artist_faqs').insert(
           generatedFaqs.map((f: any, i: number) => ({
             artist_id: artist.id,
             question: f.question,

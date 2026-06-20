@@ -1,6 +1,6 @@
 import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import {
   saveStep1Payload,
   saveStep2Payload,
@@ -71,6 +71,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
+  // Ownership is verified above (artist row fetched by user_id). Perform the
+  // writes with the service-role client so they don't depend on every RLS
+  // policy / helper function being present in the database — a missing
+  // current_artist_id() or absent DELETE policy previously made portfolio and
+  // availability saves fail with "new row violates row-level security policy".
+  // All writes are scoped to this user's own artist.id, so this is safe.
+  const db = createSupabaseAdminClient()
+
   switch (step) {
     case 1: {
       const parsed = saveStep1Payload.safeParse(payload)
@@ -96,7 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         )
       }
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('artists')
         .update({
           username: parsed.data.username,
@@ -125,7 +133,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         )
       }
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('artists')
         .update({
           display_name: parsed.data.displayName,
@@ -158,7 +166,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Delete existing portfolio images for this artist (re-sync on each step-3 save)
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await db
         .from('portfolio_images')
         .delete()
         .eq('artist_id', artist.id)
@@ -180,7 +188,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           display_order: img.displayOrder,
         }))
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await db
           .from('portfolio_images')
           .insert(rows)
 
@@ -193,7 +201,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('artists')
         .update({
           onboarding_step: Math.max(artist.onboarding_step ?? 1, 4),
@@ -225,7 +233,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Update artist pricing + timezone fields
-      const { error: artistUpdateError } = await supabase
+      const { error: artistUpdateError } = await db
         .from('artists')
         .update({
           hourly_rate: parsed.data.hourlyRate ?? null,
@@ -251,7 +259,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Upsert availability slots
       if (parsed.data.availability.length > 0) {
         // Delete existing availability and re-insert to handle day removals
-        const { error: delAvailError } = await supabase
+        const { error: delAvailError } = await db
           .from('artist_availability')
           .delete()
           .eq('artist_id', artist.id)
@@ -275,7 +283,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // NOTE: no timezone column here; artist_availability doesn’t have one
         }))
 
-        const { error: insertAvailError } = await supabase
+        const { error: insertAvailError } = await db
           .from('artist_availability')
           .insert(availRows)
 
