@@ -3,6 +3,17 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
+// Pulls a column name out of either Postgres or PostgREST "missing column" errors.
+function extractMissingColumn(message: string): string | null {
+  // PostgREST schema cache: Could not find the 'price_tier' column of 'artists'
+  const postgrest = /'(\w+)' column/i.exec(message)
+  if (postgrest?.[1]) return postgrest[1]
+  // Postgres native: column "price_tier" of relation "artists" does not exist
+  const native = /column "?(\w+)"? of relation/i.exec(message)
+  if (native?.[1]) return native[1]
+  return null
+}
+
 // All fields are optional and lenient so debounced auto-save never rejects
 // transient empty values while the user is still editing a field.
 const schema = z.object({
@@ -100,9 +111,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (Object.keys(updatePayload).length > 0) {
     updatePayload.updated_at = now
 
-    // Retry up to 3 times, dropping any unknown columns (Postgres 42703) as we go.
+    // Retry while dropping unknown columns. Two formats both mean "column missing":
+    //   • Postgres native: code 42703, "column \"price_tier\" of relation ..."
+    //   • PostgREST cache: code PGRST204, "Could not find the 'price_tier' column ..."
     let attempts = 0
-    while (attempts < 4) {
+    while (attempts < 20) {
       const { error: updateErr } = await supabase
         .from('artists')
         .update(updatePayload)
@@ -110,14 +123,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       if (!updateErr) break
 
-      // Column doesn't exist on this DB — strip it and retry.
-      const missingColumnMatch =
-        updateErr.code === '42703' &&
-        /column "?(\w+)"? of relation/.exec(updateErr.message)
-      if (missingColumnMatch?.[1] && missingColumnMatch[1] in updatePayload) {
-        console.warn(`[api/settings] dropping unknown column ${missingColumnMatch[1]}`)
-        delete updatePayload[missingColumnMatch[1]]
+      const missingCol = extractMissingColumn(updateErr.message)
+      if (missingCol && missingCol in updatePayload) {
+        console.warn(`[api/settings] dropping unknown column "${missingCol}" and retrying`)
+        delete updatePayload[missingCol]
         attempts++
+        // If nothing left except updated_at, stop trying.
+        const remaining = Object.keys(updatePayload).filter((k) => k !== 'updated_at')
+        if (remaining.length === 0) break
         continue
       }
 

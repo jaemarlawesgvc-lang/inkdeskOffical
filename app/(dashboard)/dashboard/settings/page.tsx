@@ -17,9 +17,11 @@ export default async function SettingsPage() {
 
   if (!user) redirect('/login')
 
+  // Use select('*') so the query never fails if any notification column is
+  // missing from the database (older schemas may not have them yet).
   const { data: artist, error: artistError } = await supabase
     .from('artists')
-    .select('id, username, email_booking_confirmation, email_reminders, email_aftercare')
+    .select('*')
     .eq('user_id', user.id)
     .maybeSingle()
 
