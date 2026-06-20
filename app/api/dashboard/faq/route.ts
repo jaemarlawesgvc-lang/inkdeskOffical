@@ -69,20 +69,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'FAQs already exist' }, { status: 409 })
     }
 
-    const { error } = await supabase.from('artist_faqs').insert(
+    const { data: seeded, error } = await supabase.from('artist_faqs').insert(
       DEFAULT_FAQS.map((faq, i) => ({
         artist_id: artistId,
         question: faq.question,
         answer: faq.answer,
         display_order: i,
       })),
-    )
+    ).select('id, question, answer, display_order')
 
     if (error) {
       console.error('[api/faq] seed failed:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, faqs: seeded ?? [] })
   }
 
   const parsed = createSchema.safeParse(body)

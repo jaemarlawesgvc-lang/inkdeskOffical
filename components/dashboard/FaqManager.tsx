@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface Faq {
   id: string
@@ -28,7 +29,10 @@ export function FaqManager({ initialFaqs }: FaqManagerProps) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const refresh = () => router.refresh()
+  // Keep local list in sync if the server sends fresh data (e.g. after refresh).
+  useEffect(() => {
+    setFaqs(initialFaqs)
+  }, [initialFaqs])
 
   const handleSeedDefaults = async () => {
     setBusy(true)
@@ -39,11 +43,26 @@ export function FaqManager({ initialFaqs }: FaqManagerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seedDefaults: true }),
       })
-      const json = (await res.json()) as { error?: string }
+      const json = (await res.json()) as {
+        error?: string
+        faqs?: { id: string; question: string; answer: string; display_order: number }[]
+      }
       if (!res.ok) throw new Error(json.error ?? 'Could not load default questions')
-      refresh()
+
+      // Populate the list immediately from the server's response.
+      const seeded = (json.faqs ?? []).map((f) => ({
+        id: f.id,
+        question: f.question,
+        answer: f.answer,
+        displayOrder: f.display_order,
+      }))
+      setFaqs(seeded)
+      toast.success(`${seeded.length} starter questions added`)
+      router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load default questions')
+      const message = err instanceof Error ? err.message : 'Could not load default questions'
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -65,8 +84,11 @@ export function FaqManager({ initialFaqs }: FaqManagerProps) {
       setFaqs((prev) => [...prev, { id: created.id, question: created.question, answer: created.answer, displayOrder: created.display_order }])
       setNewQuestion('')
       setNewAnswer('')
+      toast.success('Question added')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add question')
+      const message = err instanceof Error ? err.message : 'Could not add question'
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }

@@ -49,6 +49,8 @@ interface ArtistRecord {
   deposit_amount: number | null
   studio_name: string | null
   studio_address: string | null
+  studio_lat: number | null
+  studio_lng: number | null
   instagram_handle: string | null
   pricing_notes: string | null
   site_data: SiteData | null
@@ -347,8 +349,8 @@ export default async function ArtistPage({
         <StudioSection
           studioName={artist.studio_name}
           studioAddress={artist.studio_address}
-          lat={null}
-          lng={null}
+          lat={artist.studio_lat}
+          lng={artist.studio_lng}
           accentColor={accent}
         />
 
