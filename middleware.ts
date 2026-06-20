@@ -95,6 +95,16 @@ interface ProfileWithArtist {
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
+// Copy any cookies the session refresh wrote onto `response` over to a redirect
+// (or other) response. Without this, returning a redirect from middleware drops
+// the freshly-refreshed Supabase auth cookies, so the next request uses a stale
+// token and the user has to refresh for it to work — the classic "have to
+// refresh after signing in / confirming email" bug.
+function withSessionCookies(source: NextResponse, target: NextResponse): NextResponse {
+  source.cookies.getAll().forEach((cookie) => target.cookies.set(cookie))
+  return target
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -105,6 +115,13 @@ export async function middleware(request: NextRequest) {
 
   // Step 2 — Refresh the session.
   const { response, user, supabase } = await updateSupabaseSession(request)
+
+  // Redirect helper that always carries the refreshed session cookies forward.
+  const redirectTo = (to: URL | string) =>
+    withSessionCookies(
+      response,
+      NextResponse.redirect(typeof to === 'string' ? new URL(to, request.url) : to),
+    )
 
   // Step 2.5 — Rate Limiting
   const ip = request.ip ?? request.headers.get('x-forwarded-for') ?? '127.0.0.1'
@@ -136,7 +153,7 @@ export async function middleware(request: NextRequest) {
   if (isProtected(pathname) && !user) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
+    return redirectTo(loginUrl)
   }
 
   // Auth rate limiting (brute-force protection) — only on actual submissions
@@ -171,7 +188,7 @@ export async function middleware(request: NextRequest) {
     // Step 5 — Self-healing: auth user exists but profile row is missing.
     if (profileError || !profileData) {
       if (!isOnboardingRoute(pathname)) {
-        return NextResponse.redirect(new URL('/onboarding', request.url))
+        return redirectTo('/onboarding')
       }
       return response
     }
@@ -186,7 +203,7 @@ export async function middleware(request: NextRequest) {
 
     // Step 6 — /admin routes: only users with role='admin' may access.
     if (isAdminRoute(pathname) && !isAdmin) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return redirectTo('/dashboard')
     }
 
     // Step 7 — /dashboard routes.
@@ -201,12 +218,10 @@ export async function middleware(request: NextRequest) {
     // Step 8 — Auth pages: authenticated users should not be here.
     if (isAuthPage(pathname)) {
       if (!onboardingComplete) {
-        return NextResponse.redirect(new URL('/onboarding', request.url))
+        return redirectTo('/onboarding')
       }
       const nextParam = request.nextUrl.searchParams.get('next')
-      return NextResponse.redirect(
-        new URL(getSafeNext(nextParam), request.url),
-      )
+      return redirectTo(getSafeNext(nextParam))
     }
 
     // Step 9 — /onboarding: completed users don’t need to be here.
