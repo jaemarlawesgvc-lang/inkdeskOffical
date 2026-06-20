@@ -181,6 +181,10 @@ export default async function ArtistPage({
   const site = artist.site_data ?? {}
   const name = artist.display_name ?? artist.username
   const accent = site.colorScheme?.accent ?? DEFAULT_ACCENT
+  // Primary themes the page background; secondary adds an atmospheric tint.
+  // Every section is translucent, so they inherit these automatically.
+  const primary = site.colorScheme?.primary ?? '#0a0a0a'
+  const secondary = site.colorScheme?.secondary ?? '#111827'
 
   const portfolio = (artist.portfolio_images ?? [])
     .slice()
@@ -280,7 +284,15 @@ export default async function ArtistPage({
         address={artist.studio_address}
       />
 
-      <div id="top" className="min-h-screen bg-black text-white">
+      <div
+        id="top"
+        className="min-h-screen text-white"
+        style={{
+          backgroundColor: primary,
+          backgroundImage: `radial-gradient(75% 55% at 50% -8%, ${secondary}66 0%, transparent 70%)`,
+          backgroundAttachment: 'fixed',
+        }}
+      >
         {isOwnerPreview && (
           <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm text-center px-4 py-2.5">
             Preview only — finish onboarding to publish this page publicly.
@@ -300,6 +312,7 @@ export default async function ArtistPage({
           subheadline={heroSub}
           ctaText={heroCta}
           accentColor={accent}
+          primaryColor={primary}
           artistName={name}
           instagramHandle={artist.instagram_handle}
           styleTags={styleTags}

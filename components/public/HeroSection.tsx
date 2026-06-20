@@ -10,6 +10,7 @@ interface HeroSectionProps {
   subheadline: string
   ctaText: string
   accentColor: string
+  primaryColor?: string
   artistName: string
   instagramHandle?: string | null
   styleTags?: string[]
@@ -30,6 +31,7 @@ export function HeroSection({
   subheadline,
   ctaText,
   accentColor,
+  primaryColor = '#000000',
   artistName,
   instagramHandle,
   styleTags = [],
@@ -48,15 +50,15 @@ export function HeroSection({
   if (yearsExperience && yearsExperience > 0) stats.push({ value: `${yearsExperience}y`, label: 'experience' })
 
   return (
-    <section className="relative flex min-h-screen items-center overflow-hidden bg-black" aria-label="Profile">
+    <section className="relative flex min-h-screen items-center overflow-hidden" style={{ backgroundColor: primaryColor }} aria-label="Profile">
       {/* ── Atmospheric backdrop ── */}
       {backdrop ? (
         <div className="absolute inset-0" aria-hidden="true">
           <Image src={backdrop.publicUrl} alt="" fill priority sizes="100vw" className="scale-110 object-cover blur-2xl opacity-40 animate-ken-burns" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/85 to-black" />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}b3, ${primaryColor}d9, ${primaryColor})` }} />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-black to-black" aria-hidden="true" />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}, ${primaryColor})` }} aria-hidden="true" />
       )}
 
       {/* Accent glow */}
@@ -163,7 +165,7 @@ export function HeroSection({
       </div>
 
       {/* Bottom fade */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32" style={{ background: `linear-gradient(to top, ${primaryColor}, transparent)` }} />
     </section>
   )
 }

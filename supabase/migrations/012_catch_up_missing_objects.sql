@@ -16,6 +16,17 @@
 --  on artists.timezone (migration 001). Nothing to add here for that.
 -- ══════════════════════════════════════════════════════════════════════════════
 
+-- ── Ensure the shared updated_at trigger function exists ─────────────────────
+-- (Defined in migration 001; recreated here so this script is self-contained
+--  and never fails on a DB where 001 was incomplete.)
+CREATE OR REPLACE FUNCTION public.trigger_set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ── artists: pricing_notes + price_tier ──────────────────────────────────────
 ALTER TABLE public.artists
   ADD COLUMN IF NOT EXISTS pricing_notes text
@@ -64,15 +75,8 @@ DROP POLICY IF EXISTS "artist_faqs_artist_all" ON public.artist_faqs;
 CREATE POLICY "artist_faqs_artist_all"
   ON public.artist_faqs FOR ALL
   TO authenticated
-  USING (artist_id = public.current_artist_id())
-  WITH CHECK (artist_id = public.current_artist_id());
-
-DROP POLICY IF EXISTS "artist_faqs_admin_all" ON public.artist_faqs;
-CREATE POLICY "artist_faqs_admin_all"
-  ON public.artist_faqs FOR ALL
-  TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING (artist_id IN (SELECT id FROM public.artists WHERE user_id = auth.uid()))
+  WITH CHECK (artist_id IN (SELECT id FROM public.artists WHERE user_id = auth.uid()));
 
 -- ── artist_credentials ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.artist_credentials (
@@ -121,15 +125,8 @@ DROP POLICY IF EXISTS "artist_credentials_artist_all" ON public.artist_credentia
 CREATE POLICY "artist_credentials_artist_all"
   ON public.artist_credentials FOR ALL
   TO authenticated
-  USING (artist_id = public.current_artist_id())
-  WITH CHECK (artist_id = public.current_artist_id());
-
-DROP POLICY IF EXISTS "artist_credentials_admin_all" ON public.artist_credentials;
-CREATE POLICY "artist_credentials_admin_all"
-  ON public.artist_credentials FOR ALL
-  TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING (artist_id IN (SELECT id FROM public.artists WHERE user_id = auth.uid()))
+  WITH CHECK (artist_id IN (SELECT id FROM public.artists WHERE user_id = auth.uid()));
 
 -- ── consent_form_submissions (from 011) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.consent_form_submissions (
