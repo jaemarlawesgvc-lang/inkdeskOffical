@@ -2,11 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import type { Plan } from '@/lib/stripe/plans'
 import { PLAN_DISPLAY } from '@/lib/stripe/plans'
-import { STYLE_TAG_OPTIONS } from '@/lib/validations/onboarding'
-import { StudioLocationPicker } from '@/components/dashboard/StudioLocationPicker'
-import { CredentialsManager } from '@/components/dashboard/CredentialsManager'
 
 interface ServiceItem {
   name: string
@@ -23,17 +21,6 @@ interface SiteDataShape {
   colorScheme?: { primary?: string; secondary?: string; accent?: string }
 }
 
-interface ProfileData {
-  displayName: string
-  bio: string
-  styleTags: string[]
-  instagramHandle: string
-  studioName: string
-  studioAddress: string
-  studioLat: number | null
-  studioLng: number | null
-}
-
 interface PagePreviewClientProps {
   artistId: string
   siteData: Record<string, unknown> | null
@@ -41,8 +28,6 @@ interface PagePreviewClientProps {
   generationsUsed: number
   generationLimit: number | null
   plan: Plan
-  initialProfile: ProfileData
-  initialCredentials: any[]
 }
 
 const PROGRESS_LABELS = [
@@ -67,8 +52,6 @@ export function PagePreviewClient({
   generationsUsed,
   generationLimit,
   plan,
-  initialProfile,
-  initialCredentials,
 }: PagePreviewClientProps) {
   const router = useRouter()
   const [siteData, setSiteData] = useState<SiteDataShape | null>(
@@ -83,18 +66,7 @@ export function PagePreviewClient({
   // ── Edit mode state ──
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [draft, setDraft] = useState<SiteDataShape | null>(null)
-  const [profileDraft, setProfileDraft] = useState<ProfileData>({ ...initialProfile })
-
-  const toggleStyleTag = (tag: string) => {
-    setProfileDraft((prev) => {
-      const next = prev.styleTags.includes(tag)
-        ? prev.styleTags.filter((t) => t !== tag)
-        : [...prev.styleTags, tag]
-      return { ...prev, styleTags: next }
-    })
-  }
 
   const startProgress = () => {
     let pct = 0
@@ -149,7 +121,6 @@ export function PagePreviewClient({
   }
 
   const startEditing = () => {
-    setSaveError(null)
     setDraft({
       hero: {
         headline: siteData?.hero?.headline ?? '',
@@ -168,15 +139,12 @@ export function PagePreviewClient({
       seoDescription: siteData?.seoDescription ?? '',
       colorScheme: siteData?.colorScheme,
     })
-    setProfileDraft({ ...initialProfile })
     setIsEditing(true)
   }
 
   const cancelEditing = () => {
     setIsEditing(false)
     setDraft(null)
-    setProfileDraft({ ...initialProfile })
-    setSaveError(null)
   }
 
   const updateDraftService = (index: number, field: keyof ServiceItem, value: string) => {
@@ -203,18 +171,17 @@ export function PagePreviewClient({
 
   const handleSave = async () => {
     if (!draft) return
-    setSaveError(null)
 
     const cleanedServices = (draft.services ?? []).filter(
       (s) => s.name.trim() && s.description.trim() && s.priceFrom.trim(),
     )
 
     if (cleanedServices.length === 0) {
-      setSaveError('Add at least one service with a name, description, and price.')
+      toast.error('Add at least one service with a name, description, and price.')
       return
     }
     if (cleanedServices.length > 10) {
-      setSaveError('You can list a maximum of 10 services.')
+      toast.error('You can list a maximum of 10 services.')
       return
     }
 
@@ -248,44 +215,24 @@ export function PagePreviewClient({
 
     setIsSaving(true)
     try {
-      const [resSite, resSettings] = await Promise.all([
-        fetch('/api/dashboard/site-content', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ artistId, siteData: payloadSiteData }),
-        }),
-        fetch('/api/dashboard/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ artistId, ...profileDraft }),
-        })
-      ])
+      const res = await fetch('/api/dashboard/site-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artistId, siteData: payloadSiteData }),
+      })
+      const json = (await res.json()) as { ok?: boolean; error?: string }
 
-      const jsonSite = (await resSite.json()) as { ok?: boolean; error?: string }
-      const jsonSettings = (await resSettings.json()) as { ok?: boolean; error?: string }
-
-      if (!resSite.ok || !jsonSite.ok) {
-        throw new Error(jsonSite.error ?? 'Failed to save site content')
-      }
-      if (!resSettings.ok || !jsonSettings.ok) {
-        throw new Error(jsonSettings.error ?? 'Failed to save profile settings')
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error ?? 'Failed to save site content')
       }
 
       setSiteData(payloadSiteData)
-      initialProfile.displayName = profileDraft.displayName
-      initialProfile.bio = profileDraft.bio
-      initialProfile.styleTags = profileDraft.styleTags
-      initialProfile.instagramHandle = profileDraft.instagramHandle
-      initialProfile.studioName = profileDraft.studioName
-      initialProfile.studioAddress = profileDraft.studioAddress
-      initialProfile.studioLat = profileDraft.studioLat
-      initialProfile.studioLng = profileDraft.studioLng
-
+      toast.success('Page content saved!')
       setIsEditing(false)
       setDraft(null)
       router.refresh()
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      toast.error(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setIsSaving(false)
     }
@@ -397,10 +344,6 @@ export function PagePreviewClient({
             </div>
           )}
         </div>
-      )}
-
-      {saveError && (
-        <p className="text-red-400 text-sm" role="alert">{saveError}</p>
       )}
 
       {/* ── Edit form ── */}
@@ -552,90 +495,6 @@ export function PagePreviewClient({
               />
             </div>
           </div>
-
-          {/* Profile Edit Card */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
-            <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Profile Info</p>
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40">Display name</label>
-              <input
-                type="text"
-                value={profileDraft.displayName}
-                onChange={(e) => setProfileDraft(prev => ({ ...prev, displayName: e.target.value }))}
-                className={inputCls}
-                placeholder="Your name"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40">Bio</label>
-              <textarea
-                value={profileDraft.bio}
-                onChange={(e) => setProfileDraft(prev => ({ ...prev, bio: e.target.value }))}
-                rows={3}
-                className={`${inputCls} resize-none`}
-                placeholder="Tell clients about your work…"
-                maxLength={500}
-              />
-              <p className="text-xs text-white/30 mt-1">{profileDraft.bio.length}/500</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40 block">Style tags</label>
-              <div className="flex flex-wrap gap-2">
-                {STYLE_TAG_OPTIONS.map((tag) => {
-                  const active = profileDraft.styleTags.includes(tag)
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleStyleTag(tag)}
-                      className={[
-                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150',
-                        active ? 'bg-white text-black border-white' : 'border-white/20 text-white/50 hover:border-white/50 hover:text-white',
-                      ].join(' ')}
-                    >
-                      {tag}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40">Instagram handle</label>
-              <div className="flex items-center rounded-lg overflow-hidden ring-1 ring-white/20 focus-within:ring-white/50 bg-black/40 border border-white/15">
-                <span className="pl-4 pr-1 text-white/40 text-sm">@</span>
-                <input
-                  type="text"
-                  value={profileDraft.instagramHandle}
-                  onChange={(e) => setProfileDraft(prev => ({ ...prev, instagramHandle: e.target.value }))}
-                  className="flex-1 bg-transparent py-2 px-3 text-white placeholder-white/25 text-sm focus:outline-none"
-                  placeholder="yourhandle"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Studio Edit Card */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
-            <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Studio Info</p>
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40">Studio name</label>
-              <input
-                type="text"
-                value={profileDraft.studioName}
-                onChange={(e) => setProfileDraft(prev => ({ ...prev, studioName: e.target.value }))}
-                className={inputCls}
-                placeholder="Studio name (optional)"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-white/40">Studio address</label>
-              <StudioLocationPicker
-                address={profileDraft.studioAddress}
-                onAddressChange={(address) => setProfileDraft(prev => ({ ...prev, studioAddress: address }))}
-                onCoordsChange={(lat, lng) => setProfileDraft(prev => ({ ...prev, studioLat: lat, studioLng: lng }))}
-              />
-            </div>
-          </div>
         </div>
       ) : siteData ? (
         <div className="space-y-4">
@@ -707,47 +566,6 @@ export function PagePreviewClient({
               {siteData.seoDescription && <p className="text-white/50 text-xs">{siteData.seoDescription}</p>}
             </div>
           )}
-
-          {/* Profile */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-2">
-            <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Profile</p>
-            {initialProfile.displayName ? (
-              <p className="text-white text-sm font-medium">{initialProfile.displayName}</p>
-            ) : (
-              <p className="text-white/30 text-xs italic">No display name set</p>
-            )}
-            {initialProfile.instagramHandle && (
-              <p className="text-white/60 text-xs">@{initialProfile.instagramHandle}</p>
-            )}
-            {initialProfile.bio && (
-              <p className="text-white/60 text-xs mt-1">{initialProfile.bio}</p>
-            )}
-            {initialProfile.styleTags && initialProfile.styleTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {initialProfile.styleTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2.5 py-0.5 rounded-full bg-white/10 text-white/70 text-xs font-medium"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Studio */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-2">
-            <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Studio</p>
-            {initialProfile.studioName ? (
-              <p className="text-white text-sm font-medium">{initialProfile.studioName}</p>
-            ) : (
-              <p className="text-white/30 text-xs italic">No studio name set</p>
-            )}
-            {initialProfile.studioAddress && (
-              <p className="text-white/60 text-xs">{initialProfile.studioAddress}</p>
-            )}
-          </div>
         </div>
       ) : (
         <div className="bg-white/5 border border-white/10 rounded-xl px-6 py-12 text-center">
@@ -755,9 +573,6 @@ export function PagePreviewClient({
           <p className="text-white/25 text-xs mt-1">Click &ldquo;Regenerate site&rdquo; above to generate your page.</p>
         </div>
       )}
-
-      {/* Credentials */}
-      <CredentialsManager artistId={artistId} initialCredentials={initialCredentials} />
     </div>
   )
 }

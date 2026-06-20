@@ -107,6 +107,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (d.emailBookingConfirmation !== undefined) updatePayload.email_booking_confirmation = d.emailBookingConfirmation
   if (d.emailReminders !== undefined) updatePayload.email_reminders = d.emailReminders
   if (d.emailAftercare !== undefined) updatePayload.email_aftercare = d.emailAftercare
+  // Timezone lives on the artists table (NOT artist_availability).
+  if (d.timezone !== undefined) updatePayload.timezone = d.timezone || 'Europe/London'
 
   if (Object.keys(updatePayload).length > 0) {
     updatePayload.updated_at = now
@@ -152,14 +154,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (d.availability.length > 0) {
-      const timezone = d.timezone || 'Europe/London'
+      // NOTE: artist_availability has no timezone column — timezone is stored
+      // on the artists row above. Only insert the columns that exist here.
       const { error: availError } = await supabase.from('artist_availability').insert(
         d.availability.map((s) => ({
           artist_id: d.artistId,
           day_of_week: s.dayOfWeek,
           start_time: s.startTime,
           end_time: s.endTime,
-          timezone,
         })),
       )
       if (availError) {

@@ -29,13 +29,12 @@ export default async function PagePreviewPage() {
       artist_availability (
         day_of_week,
         start_time,
-        end_time,
-        timezone
+        end_time
       )
     `,
     )
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!joinError && artistWithAvail) {
     artist = artistWithAvail
@@ -45,7 +44,7 @@ export default async function PagePreviewPage() {
       .from('artists')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
     if (artistOnly) {
       artist = { ...artistOnly, artist_availability: [] }
     }
@@ -84,7 +83,6 @@ export default async function PagePreviewPage() {
       day_of_week: number
       start_time: string
       end_time: string
-      timezone: string
     }[]) ?? []
   )
     .sort((a, b) => a.day_of_week - b.day_of_week)
@@ -94,9 +92,8 @@ export default async function PagePreviewPage() {
       endTime: s.end_time?.slice(0, 5) ?? '17:00',
     }))
 
-  const firstSlot = (
-    artist.artist_availability as { timezone: string }[] | null
-  )?.[0]
+  // Timezone is stored on the artists row, not on availability slots.
+  const timezone = (artist.timezone as string) ?? 'Europe/London'
 
   // ── Credentials (table may not exist yet) ──
   let credentials: {
@@ -173,7 +170,7 @@ export default async function PagePreviewPage() {
           depositRequired: (artist.deposit_required as boolean) ?? true,
           pricingNotes: (artist.pricing_notes as string) ?? '',
           priceTier: (artist.price_tier as string) ?? '££',
-          timezone: firstSlot?.timezone ?? 'Europe/London',
+          timezone,
           availability,
         }}
       />
@@ -184,7 +181,7 @@ export default async function PagePreviewPage() {
           <h2 className="text-base font-semibold text-white">Credentials</h2>
           <p className="text-white/40 text-sm mt-0.5">Licenses, awards, and publications shown on your public page.</p>
         </div>
-        <CredentialsManager initialCredentials={credentials} />
+        <CredentialsManager artistId={artist.id as string} initialCredentials={credentials} />
       </section>
 
       {/* ── AI Page Builder ── */}
@@ -197,17 +194,6 @@ export default async function PagePreviewPage() {
           generationsUsed={generationsUsed}
           generationLimit={generationLimit === Infinity ? null : generationLimit}
           plan={plan}
-          initialProfile={{
-            displayName: (artist.display_name as string) ?? '',
-            bio: (artist.bio as string) ?? '',
-            styleTags: (artist.style_tags as string[]) ?? [],
-            instagramHandle: (artist.instagram_handle as string) ?? '',
-            studioName: (artist.studio_name as string) ?? '',
-            studioAddress: (artist.studio_address as string) ?? '',
-            studioLat: (artist.studio_lat as number) ?? null,
-            studioLng: (artist.studio_lng as number) ?? null,
-          }}
-          initialCredentials={credentials}
         />
       </section>
     </div>

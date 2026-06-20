@@ -345,9 +345,15 @@ function SaveStatusPill({
   lastSavedAt: Date | null
   errorMessage: string | null
 }) {
+  // Fixed to the viewport so it follows the user as they scroll and is never
+  // clipped by an ancestor's overflow/transform. Sits bottom-right, above the
+  // mobile bottom nav; sonner toasts live top-right so there's no collision.
+  const wrapperCls =
+    'fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50 inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-medium shadow-lg backdrop-blur-md transition-all duration-200'
+
   if (status === 'saving') {
     return (
-      <div className="sticky top-2 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/80 text-xs font-medium" aria-live="polite">
+      <div className={`${wrapperCls} bg-ink-900/90 border border-white/20 text-white/80`} aria-live="polite">
         <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="50 14" />
         </svg>
@@ -358,18 +364,18 @@ function SaveStatusPill({
 
   if (status === 'error') {
     return (
-      <div className="sticky top-2 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-medium" role="alert">
-        <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+      <div className={`${wrapperCls} bg-red-950/90 border border-red-500/40 text-red-300`} role="alert">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true">
           <path fillRule="evenodd" d="M18 10A8 8 0 11.001 10 8 8 0 0118 10zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
         </svg>
-        {errorMessage ?? 'Save failed'}
+        <span className="max-w-[14rem] truncate">{errorMessage ?? 'Save failed'}</span>
       </div>
     )
   }
 
   if (status === 'saved' || lastSavedAt) {
     return (
-      <div className="sticky top-2 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium" aria-live="polite">
+      <div className={`${wrapperCls} bg-emerald-950/90 border border-emerald-500/40 text-emerald-300`} aria-live="polite">
         <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clipRule="evenodd" />
         </svg>

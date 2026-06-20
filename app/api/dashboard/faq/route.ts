@@ -78,7 +78,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })),
     )
 
-    if (error) return NextResponse.json({ error: 'Failed to seed FAQs' }, { status: 500 })
+    if (error) {
+      console.error('[api/faq] seed failed:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     return NextResponse.json({ ok: true })
   }
 
@@ -107,7 +110,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Failed to create FAQ' }, { status: 500 })
+    console.error('[api/faq] create failed:', error)
+    return NextResponse.json({ error: error?.message ?? 'Failed to create FAQ' }, { status: 500 })
   }
 
   return NextResponse.json({ faq: data })
