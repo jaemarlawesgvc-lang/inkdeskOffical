@@ -2,10 +2,18 @@ import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
 import { env } from '@/lib/env'
 
+// This client is constructed at import time, so it's evaluated during
+// `next build`'s page-data collection. If the Upstash vars aren't present in
+// the build environment, the constructor would abort the build. Fall back to
+// harmless placeholders during the build phase only — these are never used to
+// serve a request (runtime env validation in lib/env guarantees the real
+// values are present before any request is handled).
+const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build'
+
 // Initialize Redis client
 export const redis = new Redis({
-  url: env.UPSTASH_REDIS_REST_URL,
-  token: env.UPSTASH_REDIS_REST_TOKEN,
+  url: env.UPSTASH_REDIS_REST_URL ?? (IS_BUILD ? 'https://placeholder.upstash.io' : ''),
+  token: env.UPSTASH_REDIS_REST_TOKEN ?? (IS_BUILD ? 'placeholder-token' : ''),
 })
 
 // Rate limiters for different types of routes

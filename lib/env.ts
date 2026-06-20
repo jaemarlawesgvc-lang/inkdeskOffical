@@ -146,8 +146,25 @@ function validateEnv(): Env {
       .map((issue) => `  ✗  ${issue.path.join('.')}: ${issue.message}`)
       .join('\n')
 
+    // During `next build`, Next.js imports every route module to collect page
+    // data. That triggers this validation even though the runtime secrets
+    // aren't needed just to compile. If a variable is absent in the build
+    // environment, throwing here aborts the whole build with the opaque
+    // "Failed to collect page data for /auth/callback". Don't fail the build
+    // for this — validation still fires loudly at real server startup
+    // (instrumentation.ts) and on first request, so misconfiguration can never
+    // silently serve traffic.
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.warn(
+        '[InkDesk] Skipping env validation during build (these vars are only ' +
+          'needed at runtime — set them in Vercel before the app serves ' +
+          `requests):\n${issues}`,
+      )
+      return process.env as unknown as Env
+    }
+
     // ASCII-box error is deliberately loud — misconfiguration must never
-    // silently reach production.
+    // silently reach production at runtime.
     throw new Error(
       [
         '',
