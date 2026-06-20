@@ -67,6 +67,14 @@ const schema = z.object({
     .string({ required_error: 'GEMINI_API_KEY is required' })
     .min(1, 'GEMINI_API_KEY cannot be empty'),
 
+  // Optional override for the Gemini model name. If unset, the client tries a
+  // built-in fallback chain of known-good flash models.
+  GEMINI_MODEL: z
+    .string()
+    .min(1)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+
   // ── Resend ──────────────────────────────────────────────────────────────────
   RESEND_API_KEY: z
     .string({ required_error: 'RESEND_API_KEY is required' })

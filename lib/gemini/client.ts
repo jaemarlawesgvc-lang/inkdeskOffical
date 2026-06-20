@@ -129,6 +129,25 @@ export class GeminiInvalidResponseError extends Error {
 
 const TIMEOUT_MS = 30_000
 
+// Model fallback chain. Google rotates which models a given API key/region can
+// access, so we try several known-good flash models in order. An explicit
+// GEMINI_MODEL env var (if set) is tried first.
+const DEFAULT_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-1.5-flash',
+]
+
+const MODELS: string[] = env.GEMINI_MODEL
+  ? [env.GEMINI_MODEL, ...DEFAULT_MODELS.filter((m) => m !== env.GEMINI_MODEL)]
+  : DEFAULT_MODELS
+
+// Auth/permission errors are fatal — trying other models won't help.
+function isFatalKeyError(message: string): boolean {
+  return /api[_ ]?key|permission|unauthor|invalid.*key|\b401\b|\b403\b/i.test(message)
+}
+
 let _client: GoogleGenerativeAI | undefined
 
 function getClient(): GoogleGenerativeAI {
@@ -147,14 +166,33 @@ function stripCodeFences(text: string): string {
 }
 
 async function callOnce(prompt: string): Promise<string> {
-  const model = getClient().getGenerativeModel({ model: 'gemini-2.0-flash' })
+  let lastError: unknown
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new GeminiTimeoutError()), TIMEOUT_MS)
-  })
+  for (const modelName of MODELS) {
+    try {
+      const model = getClient().getGenerativeModel({ model: modelName })
 
-  const result = await Promise.race([model.generateContent(prompt), timeoutPromise])
-  return result.response.text()
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new GeminiTimeoutError()), TIMEOUT_MS)
+      })
+
+      const result = await Promise.race([model.generateContent(prompt), timeoutPromise])
+      return result.response.text()
+    } catch (err) {
+      lastError = err
+      if (err instanceof GeminiTimeoutError) throw err
+
+      const message = err instanceof Error ? err.message : String(err)
+      // A bad API key won't be fixed by trying another model — fail fast.
+      if (isFatalKeyError(message)) throw err
+
+      console.warn(`[gemini] model "${modelName}" failed (${message}) — trying next`)
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('All Gemini models failed')
 }
 
 // Gemini doesn't reliably respect prompt-stated character limits. Clamp the

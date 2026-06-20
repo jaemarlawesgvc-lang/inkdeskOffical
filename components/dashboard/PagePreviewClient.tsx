@@ -45,6 +45,18 @@ function emptyService(): ServiceItem {
   return { name: '', description: '', priceFrom: '' }
 }
 
+// Default palette used when the AI hasn't set colours yet, or as a per-field
+// fallback if a user enters an invalid hex value.
+const FALLBACK_COLORS = { primary: '#000000', secondary: '#111827', accent: '#F97316' } as const
+
+const COLOR_FIELDS = [
+  { key: 'accent', label: 'Accent', hint: 'Buttons, links & highlights' },
+  { key: 'primary', label: 'Primary', hint: 'Main background tone' },
+  { key: 'secondary', label: 'Secondary', hint: 'Secondary surfaces' },
+] as const
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+
 export function PagePreviewClient({
   artistId,
   siteData: initialSiteData,
@@ -169,6 +181,12 @@ export function PagePreviewClient({
     })
   }
 
+  const updateDraftColor = (key: 'primary' | 'secondary' | 'accent', value: string) => {
+    setDraft((prev) =>
+      prev ? { ...prev, colorScheme: { ...prev.colorScheme, [key]: value } } : prev,
+    )
+  }
+
   const handleSave = async () => {
     if (!draft) return
 
@@ -188,14 +206,13 @@ export function PagePreviewClient({
     const headline = draft.hero?.headline?.trim() || 'Custom tattoos by appointment'
     const aboutBody = draft.about?.body?.trim() || 'Custom tattoos by a professional artist.'
 
-    const HEX_RE = /^#[0-9a-fA-F]{6}$/
-    const primary = draft.colorScheme?.primary
-    const secondary = draft.colorScheme?.secondary
-    const accent = draft.colorScheme?.accent
-    const colorScheme =
-      primary && secondary && accent && HEX_RE.test(primary) && HEX_RE.test(secondary) && HEX_RE.test(accent)
-        ? { primary, secondary, accent }
-        : { primary: '#000000', secondary: '#111827', accent: '#F97316' }
+    // Per-field validation: keep each valid hex, fall back individually so one
+    // mistyped value doesn't reset the whole palette.
+    const colorScheme = {
+      primary: HEX_RE.test(draft.colorScheme?.primary ?? '') ? draft.colorScheme!.primary! : FALLBACK_COLORS.primary,
+      secondary: HEX_RE.test(draft.colorScheme?.secondary ?? '') ? draft.colorScheme!.secondary! : FALLBACK_COLORS.secondary,
+      accent: HEX_RE.test(draft.colorScheme?.accent ?? '') ? draft.colorScheme!.accent! : FALLBACK_COLORS.accent,
+    }
 
     const payloadSiteData = {
       hero: {
@@ -494,6 +511,44 @@ export function PagePreviewClient({
                 className={`${inputCls} resize-none`}
               />
             </div>
+          </div>
+
+          {/* Colour palette */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-white/30 uppercase tracking-widest">Colour palette</p>
+              <p className="text-white/40 text-xs mt-1">
+                These colours style your public page. Pick your own, or keep the AI&rsquo;s recommendation.
+              </p>
+            </div>
+            {COLOR_FIELDS.map(({ key, label, hint }) => {
+              const value = (draft.colorScheme?.[key] as string) || FALLBACK_COLORS[key]
+              const valid = HEX_RE.test(value)
+              return (
+                <div key={key} className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={valid ? value : FALLBACK_COLORS[key]}
+                    onChange={(e) => updateDraftColor(key, e.target.value)}
+                    aria-label={`${label} colour picker`}
+                    className="h-10 w-12 shrink-0 rounded-md border border-white/15 bg-transparent cursor-pointer [color-scheme:dark]"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white/80 font-medium">{label}</p>
+                    <p className="text-white/35 text-xs">{hint}</p>
+                  </div>
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => updateDraftColor(key, e.target.value)}
+                    aria-label={`${label} hex value`}
+                    className={`${inputCls} max-w-[7.5rem] font-mono uppercase ${valid ? '' : 'border-red-500/50'}`}
+                    placeholder="#000000"
+                    maxLength={7}
+                  />
+                </div>
+              )
+            })}
           </div>
         </div>
       ) : siteData ? (

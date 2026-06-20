@@ -199,7 +199,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[generate-site] unexpected error:', message)
     return NextResponse.json(
-      { error: 'AI generation failed. Please try again.' },
+      { error: `AI generation failed: ${message}` },
       { status: 500 },
     )
   }
