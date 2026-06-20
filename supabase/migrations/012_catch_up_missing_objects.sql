@@ -6,10 +6,11 @@
 --  column of 'artists'", FAQ seeding fails because public.artist_faqs is missing).
 --
 --  Re-creates only what may be missing:
---    • artists.pricing_notes        (from 005)
---    • artists.price_tier           (from 009)
---    • public.artist_faqs           (from 005) + index, trigger, RLS policies
---    • public.artist_credentials    (from 005) + index, trigger, RLS policies
+--    • artists.pricing_notes              (from 005)
+--    • artists.price_tier                 (from 009)
+--    • public.artist_faqs                 (from 005) + index, trigger, RLS
+--    • public.artist_credentials          (from 005) + index, trigger, RLS
+--    • public.consent_form_submissions    (from 011) + index, RLS, storage bucket
 --
 --  NOTE: artist_availability has NO timezone column by design — timezone lives
 --  on artists.timezone (migration 001). Nothing to add here for that.
@@ -129,6 +130,83 @@ CREATE POLICY "artist_credentials_admin_all"
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- ── consent_form_submissions (from 011) ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.consent_form_submissions (
+  id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id           uuid        NOT NULL REFERENCES public.artists(id) ON DELETE CASCADE,
+  booking_id          uuid        REFERENCES public.bookings(id) ON DELETE SET NULL,
+  client_name         text        NOT NULL,
+  client_dob          date        NOT NULL,
+  client_phone        text,
+  tattoo_description  text        NOT NULL,
+  age_confirmed       boolean     NOT NULL DEFAULT false,
+  medical_answers     jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  signature_name      text        NOT NULL,
+  signed_at           timestamptz NOT NULL DEFAULT NOW(),
+  ip_address          text,
+  pdf_path            text,
+  viewed_at           timestamptz,
+  created_at          timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_consent_submissions_artist
+  ON public.consent_form_submissions (artist_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consent_submissions_booking
+  ON public.consent_form_submissions (booking_id);
+
+ALTER TABLE public.consent_form_submissions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "artists_own_consent_submissions" ON public.consent_form_submissions;
+CREATE POLICY "artists_own_consent_submissions"
+  ON public.consent_form_submissions FOR SELECT
+  USING (artist_id IN (SELECT id FROM public.artists WHERE user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "artists_update_own_consent_submissions" ON public.consent_form_submissions;
+CREATE POLICY "artists_update_own_consent_submissions"
+  ON public.consent_form_submissions FOR UPDATE
+  USING (artist_id IN (SELECT id FROM public.artists WHERE user_id = auth.uid()));
+
+-- email_logs: ensure the consent_form_submitted (and other newer) types are allowed
+ALTER TABLE public.email_logs DROP CONSTRAINT IF EXISTS email_logs_email_type_check;
+ALTER TABLE public.email_logs ADD CONSTRAINT email_logs_email_type_check
+  CHECK (email_type IN (
+    'booking_confirmation',
+    'artist_notification',
+    'reminder_48h',
+    'reminder_7day',
+    'aftercare',
+    'payment_failed',
+    'subscription_cancelled',
+    'gdpr_export',
+    'gdpr_deletion',
+    'deposit_receipt',
+    'review_request',
+    'cancellation_opening',
+    'new_message_notification',
+    'consent_form_submitted'
+  ));
+
+-- Private storage bucket for signed consent PDFs
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('consent-forms', 'consent-forms', false, 5242880, ARRAY['application/pdf'])
+ON CONFLICT (id) DO UPDATE SET
+  public             = excluded.public,
+  file_size_limit    = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+DROP POLICY IF EXISTS "consent_forms_artist_select" ON storage.objects;
+CREATE POLICY "consent_forms_artist_select"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'consent-forms'
+    AND (storage.foldername(name))[1] = (
+      SELECT id::text FROM public.artists
+      WHERE user_id = auth.uid() AND deleted_at IS NULL
+      LIMIT 1
+    )
+  );
 
 -- ── Reload PostgREST schema cache so new columns/tables are visible at once ───
 NOTIFY pgrst, 'reload schema';

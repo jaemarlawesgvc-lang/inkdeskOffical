@@ -16,7 +16,7 @@ export async function GET(): Promise<NextResponse> {
     .from('artists')
     .select('id')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!artist) {
     return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
@@ -29,7 +29,8 @@ export async function GET(): Promise<NextResponse> {
     .order('signed_at', { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: 'Failed to load consent forms' }, { status: 500 })
+    console.error('[api/consent-forms] load failed:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   return NextResponse.json({

@@ -20,8 +20,8 @@ export function ConsentFormsList() {
   useEffect(() => {
     fetch('/api/dashboard/consent-forms')
       .then(async (res) => {
-        if (!res.ok) throw new Error('Failed to load consent forms')
         const json = await res.json()
+        if (!res.ok) throw new Error(json.error ?? 'Failed to load consent forms')
         setSubmissions(json.submissions)
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
