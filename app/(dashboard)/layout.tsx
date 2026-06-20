@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { BottomNav } from '@/components/dashboard/BottomNav'
 import { TopBar } from '@/components/dashboard/TopBar'
+import { DashboardTour } from '@/components/dashboard/DashboardTour'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -77,6 +78,9 @@ export default async function DashboardLayout({
 
       {/* Mobile bottom nav */}
       <BottomNav username={username} />
+
+      {/* First-run welcome popup + spotlight walkthrough of the dashboard */}
+      <DashboardTour />
     </div>
   )
 }

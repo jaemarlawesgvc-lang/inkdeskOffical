@@ -54,6 +54,11 @@ export function Step3Portfolio({
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [rejectNote, setRejectNote] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Monotonic small-integer counter for display_order. The DB column is a
+  // Postgres `integer` (max 2,147,483,647), so a millisecond timestamp would
+  // overflow it ("value out of range for type integer"). Final order is
+  // re-indexed 0..n on save anyway — this just needs to be a valid, increasing int.
+  const nextOrderRef = useRef<number>((defaultImages ?? []).length)
   const supabase = getSupabaseBrowserClient()
 
   const handleFiles = useCallback(
@@ -86,6 +91,7 @@ export function Step3Portfolio({
       for (const file of accepted) {
         const id = generateId()
         const previewUrl = URL.createObjectURL(file)
+        const displayOrder = nextOrderRef.current++
 
         setItems((prev) => [
           ...prev,
@@ -95,7 +101,7 @@ export function Step3Portfolio({
             publicUrl: '',
             previewUrl,
             caption: '',
-            displayOrder: prev.length,
+            displayOrder,
             status: 'uploading',
           },
         ])
@@ -126,15 +132,13 @@ export function Step3Portfolio({
           .from('portfolio-images')
           .getPublicUrl(path)
 
-        // Use the live item count for display_order (not the stale closure
-        // value, which gave every concurrent upload the same order).
         const { data: row, error: dbError } = await supabase
           .from('portfolio_images')
           .insert({
             artist_id: artistId,
             storage_path: path,
             public_url: urlData.publicUrl,
-            display_order: Date.now(),
+            display_order: displayOrder,
             caption: '',
           })
           .select('id, storage_path, public_url, display_order, caption')

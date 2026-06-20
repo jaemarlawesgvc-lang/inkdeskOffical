@@ -1,22 +1,23 @@
 'use client'
 
 /**
- * components/onboarding/OnboardingTour.tsx
+ * components/dashboard/DashboardTour.tsx
  *
- * A snappy first-run experience for the onboarding wizard:
- *   1. A small welcome popup ("Take a 20-second tour?") on first land.
- *   2. If accepted, a spotlight walkthrough that highlights each key control
- *      one at a time with a one-line explanation. Skippable at any point.
+ * First-run experience for the dashboard:
+ *   1. A snappy welcome popup ("Take a quick tour?") on first visit.
+ *   2. If accepted, a spotlight walkthrough that highlights each sidebar button
+ *      one at a time with a one-line explanation, finishing on "Get help".
  *
- * Targets are matched by `data-tour="…"` attributes on the wizard. Any step
- * whose target isn't currently on screen (e.g. the AI bio button only exists
- * on step 2) is skipped automatically, so the tour stays sharp.
+ * Targets are matched by `data-tour="…"` attributes on the Sidebar / TopBar.
+ * Any step whose target isn't on screen (e.g. the desktop sidebar on a mobile
+ * viewport) is skipped automatically. Skippable at any point; shows once
+ * (tracked in localStorage).
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-const STORAGE_KEY = 'inkdesk_onboarding_tour_v1'
+const STORAGE_KEY = 'inkdesk_dashboard_tour_v1'
 
 interface TourStep {
   /** First visible match wins. */
@@ -27,29 +28,64 @@ interface TourStep {
 
 const STEPS: TourStep[] = [
   {
-    selectors: ['[data-tour="rail"]', '[data-tour="progress"]'],
-    title: 'Track your progress',
-    body: 'Five quick steps. We save as you go, so you can stop and come back anytime.',
+    selectors: ['[data-tour="nav-overview"]'],
+    title: 'Overview',
+    body: 'Your home base — key stats and upcoming bookings at a glance.',
   },
   {
-    selectors: ['[data-tour="form"]'],
-    title: 'Fill in this step',
-    body: 'Everything here is editable later from your dashboard — nothing is set in stone.',
+    selectors: ['[data-tour="nav-bookings"]'],
+    title: 'Bookings',
+    body: 'Incoming booking requests land here. Confirm or decline them in a tap.',
   },
   {
-    selectors: ['[data-tour="ai-bio"]'],
-    title: 'Let AI write it',
-    body: 'Short on words? Tap to generate or polish your bio, then tweak it however you like.',
+    selectors: ['[data-tour="nav-clients"]'],
+    title: 'Clients',
+    body: 'Your saved client list and their history.',
   },
   {
-    selectors: ['[data-tour="continue"]'],
-    title: 'Save & continue',
-    body: 'This saves your work and moves you to the next step. The Back button steps you back.',
+    selectors: ['[data-tour="nav-portfolio"]'],
+    title: 'Portfolio',
+    body: 'Upload and reorder your tattoo photos — drag and drop to arrange.',
+  },
+  {
+    selectors: ['[data-tour="nav-edit"]'],
+    title: 'Edit my page',
+    body: 'The main editor for your public page — bio, colours, background, pricing.',
+  },
+  {
+    selectors: ['[data-tour="nav-analytics"]'],
+    title: 'Analytics',
+    body: 'Track page views and booking stats over time.',
+  },
+  {
+    selectors: ['[data-tour="nav-messages"]'],
+    title: 'Messages',
+    body: 'Chat directly with your clients.',
+  },
+  {
+    selectors: ['[data-tour="nav-consent"]'],
+    title: 'Consent Forms',
+    body: 'Submitted client consent forms — search, filter, sort and export.',
+  },
+  {
+    selectors: ['[data-tour="nav-waitlist"]'],
+    title: 'Waitlist',
+    body: 'People who joined while you were fully booked.',
+  },
+  {
+    selectors: ['[data-tour="nav-settings"]'],
+    title: 'Settings',
+    body: 'Billing, notifications, and account & security.',
+  },
+  {
+    selectors: ['[data-tour="nav-live"]'],
+    title: 'View live page',
+    body: 'Open your public booking page in a new tab to see what clients see.',
   },
   {
     selectors: ['[data-tour="help"]'],
     title: 'Stuck on anything?',
-    body: 'Open the AI assistant for instant, step-by-step help with anything in InkDesk.',
+    body: 'The AI assistant can help with anything in InkDesk — just ask.',
   },
 ]
 
@@ -73,7 +109,7 @@ function firstVisible(selectors: string[]): HTMLElement | null {
   return null
 }
 
-export function OnboardingTour() {
+export function DashboardTour() {
   const [mounted, setMounted] = useState(false)
   // phase: 'welcome' shows the intro popup, 'tour' runs the spotlight, null = closed
   const [phase, setPhase] = useState<'welcome' | 'tour' | null>(null)
@@ -99,8 +135,7 @@ export function OnboardingTour() {
     }
   }, [])
 
-  // Resolve the target element for the current step, skipping any that aren't
-  // on screen. Returns the index actually landed on, or -1 if none remain.
+  // Resolve the next/prev step that actually has a visible target.
   const resolveFrom = useCallback((from: number, dir: 1 | -1): number => {
     let i = from
     while (i >= 0 && i < STEPS.length) {
@@ -117,25 +152,21 @@ export function OnboardingTour() {
     setRect({ top: r.top, left: r.left, width: r.width, height: r.height })
   }, [])
 
-  // When entering the tour or changing step, find the target, scroll it into
-  // view, then measure it.
   useLayoutEffect(() => {
     if (phase !== 'tour') return
     const el = firstVisible(STEPS[stepIndex]!.selectors)
     targetRef.current = el
     if (!el) {
-      // Nothing to show for this step — advance forward, or finish.
       const next = resolveFrom(stepIndex + 1, 1)
       if (next === -1) finish()
       else setStepIndex(next)
       return
     }
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const t = setTimeout(measure, 220)
+    const t = setTimeout(measure, 200)
     return () => clearTimeout(t)
   }, [phase, stepIndex, measure, resolveFrom, finish])
 
-  // Keep the spotlight glued to the target while scrolling/resizing.
   useEffect(() => {
     if (phase !== 'tour') return
     const onMove = () => measure()
@@ -147,7 +178,6 @@ export function OnboardingTour() {
     }
   }, [phase, measure])
 
-  // Escape skips the whole thing.
   useEffect(() => {
     if (!phase) return
     const onKey = (e: KeyboardEvent) => {
@@ -187,7 +217,7 @@ export function OnboardingTour() {
         className="fixed inset-0 z-[90] flex items-center justify-center p-4"
         role="dialog"
         aria-modal="true"
-        aria-label="Welcome to InkDesk"
+        aria-label="Welcome to your dashboard"
       >
         <div className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm" onClick={finish} />
         <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-gold-500/20 bg-ink-900 p-6 text-center shadow-2xl motion-safe:animate-scale-in">
@@ -201,11 +231,11 @@ export function OnboardingTour() {
             </svg>
           </span>
           <h2 className="relative mt-4 font-display text-xl font-bold text-parchment-100">
-            Welcome to InkDesk
+            Welcome to your dashboard
           </h2>
           <p className="relative mt-2 text-sm leading-relaxed text-ink-400">
-            Want a quick 20-second tour? We&apos;ll point out the key buttons so you can build
-            your page in minutes.
+            Want a quick tour? We&apos;ll point out each button so you know exactly where
+            everything lives. Takes about 30 seconds.
           </p>
           <div className="relative mt-6 flex flex-col gap-2.5">
             <button
@@ -231,11 +261,9 @@ export function OnboardingTour() {
 
   // ── Spotlight tour ─────────────────────────────────────────────────────────
   if (!rect) {
-    // Briefly while measuring — dim the screen so there's no flash of nothing.
     return createPortal(<div className="fixed inset-0 z-[90] bg-ink-950/60" />, document.body)
   }
 
-  // Position the highlight box + tooltip.
   const vw = window.innerWidth
   const vh = window.innerHeight
   const boxTop = rect.top - PAD
@@ -244,19 +272,33 @@ export function OnboardingTour() {
   const boxH = rect.height + PAD * 2
 
   const TOOLTIP_W = Math.min(320, vw - 24)
-  const placeBelow = rect.top + rect.height + 14 + 180 < vh
-  const tipTop = placeBelow ? rect.top + rect.height + PAD + 12 : rect.top - PAD - 12
-  const tipLeftRaw = rect.left + rect.width / 2 - TOOLTIP_W / 2
-  const tipLeft = Math.max(12, Math.min(tipLeftRaw, vw - TOOLTIP_W - 12))
+  // Sidebar items are tall-and-narrow on the left — prefer placing the tooltip
+  // to the right of the target; fall back to below, then above.
+  const spaceRight = vw - (rect.left + rect.width)
+  const placeRight = spaceRight > TOOLTIP_W + 24
+  const placeBelow = !placeRight && rect.top + rect.height + 14 + 170 < vh
 
-  // Human-friendly position out of the *visible* steps.
+  let tipTop: number
+  let tipLeft: number
+  let tipTransform: string | undefined
+  if (placeRight) {
+    tipTop = Math.max(12, Math.min(rect.top, vh - 180))
+    tipLeft = rect.left + rect.width + PAD + 12
+  } else if (placeBelow) {
+    tipTop = rect.top + rect.height + PAD + 12
+    tipLeft = Math.max(12, Math.min(rect.left + rect.width / 2 - TOOLTIP_W / 2, vw - TOOLTIP_W - 12))
+  } else {
+    tipTop = rect.top - PAD - 12
+    tipLeft = Math.max(12, Math.min(rect.left + rect.width / 2 - TOOLTIP_W / 2, vw - TOOLTIP_W - 12))
+    tipTransform = 'translateY(-100%)'
+  }
+
   const visibleTotal = STEPS.filter((s) => firstVisible(s.selectors)).length
-  const visiblePos =
-    STEPS.slice(0, stepIndex + 1).filter((s) => firstVisible(s.selectors)).length
+  const visiblePos = STEPS.slice(0, stepIndex + 1).filter((s) => firstVisible(s.selectors)).length
 
   return createPortal(
-    <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label="Tour">
-      {/* Spotlight: a transparent hole with a giant shadow dimming everything else */}
+    <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label="Dashboard tour">
+      {/* Spotlight: transparent hole + giant shadow dimming everything else */}
       <div
         className="pointer-events-none absolute rounded-xl ring-2 ring-gold-500/80 transition-all duration-200"
         style={{
@@ -279,12 +321,7 @@ export function OnboardingTour() {
       {/* Tooltip */}
       <div
         className="absolute rounded-xl border border-ink-700 bg-ink-900 p-4 shadow-2xl motion-safe:animate-fade-up"
-        style={{
-          top: tipTop,
-          left: tipLeft,
-          width: TOOLTIP_W,
-          transform: placeBelow ? undefined : 'translateY(-100%)',
-        }}
+        style={{ top: tipTop, left: tipLeft, width: TOOLTIP_W, transform: tipTransform }}
       >
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-display text-base font-bold text-parchment-100">
