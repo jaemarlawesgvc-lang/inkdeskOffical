@@ -194,8 +194,8 @@ export default function TermsPage() {
             </h2>
             <p>
               Questions about these Terms:{' '}
-              <a href="mailto:legal@inkdesk.co" className="text-gold-500 hover:text-gold-400">
-                legal@inkdesk.co
+              <a href="mailto:legal@inkdesk.live" className="text-gold-500 hover:text-gold-400">
+                legal@inkdesk.live
               </a>
             </p>
           </section>

@@ -44,7 +44,6 @@ export function CredentialsManager({ artistId, initialCredentials }: Credentials
   const [title, setTitle] = useState('')
   const [issuingBody, setIssuingBody] = useState('')
   const [year, setYear] = useState('')
-  const [expiryDate, setExpiryDate] = useState('')
   const [url, setUrl] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +53,6 @@ export function CredentialsManager({ artistId, initialCredentials }: Credentials
     setTitle('')
     setIssuingBody('')
     setYear('')
-    setExpiryDate('')
     setUrl('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -89,61 +87,66 @@ export function CredentialsManager({ artistId, initialCredentials }: Credentials
       storagePath = path
     }
 
-    const { data: row, error: dbError } = await supabase
-      .from('artist_credentials')
-      .insert({
-        artist_id: artistId,
-        type: activeType,
-        title: title.trim(),
-        issuing_body: issuingBody.trim() || null,
-        year: year ? parseInt(year, 10) : null,
-        expiry_date: expiryDate || null,
-        url: url.trim() || null,
-        storage_path: storagePath,
+    // Persist via the server API (service-role write — reliable regardless of
+    // the artist_credentials RLS policy state on the live database).
+    try {
+      const res = await fetch('/api/dashboard/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: activeType,
+          title: title.trim(),
+          issuingBody: issuingBody.trim() || null,
+          year: year ? parseInt(year, 10) : null,
+          url: url.trim() || null,
+          storagePath,
+        }),
       })
-      .select('id, type, title, issuing_body, year, expiry_date, url, storage_path')
-      .single()
 
-    setUploading(false)
+      const json = (await res.json()) as { credential?: Record<string, unknown>; error?: string }
 
-    if (dbError || !row) {
-      setError(dbError?.message ?? 'Failed to save credential')
-      return
+      if (!res.ok || !json.credential) {
+        setError(json.error ?? 'Failed to save credential')
+        return
+      }
+
+      const row = json.credential
+      setCredentials((prev) => [
+        ...prev,
+        {
+          id: row.id as string,
+          type: row.type as CredentialType,
+          title: row.title as string,
+          issuingBody: (row.issuing_body as string | null) ?? null,
+          year: (row.year as number | null) ?? null,
+          expiryDate: (row.expiry_date as string | null) ?? null,
+          url: (row.url as string | null) ?? null,
+          storagePath: (row.storage_path as string | null) ?? null,
+        },
+      ])
+      resetForm()
+    } catch {
+      setError('Network error — could not save credential')
+    } finally {
+      setUploading(false)
     }
-
-    setCredentials((prev) => [
-      ...prev,
-      {
-        id: row.id,
-        type: row.type,
-        title: row.title,
-        issuingBody: row.issuing_body,
-        year: row.year,
-        expiryDate: row.expiry_date,
-        url: row.url,
-        storagePath: row.storage_path,
-      },
-    ])
-    resetForm()
   }
 
   const handleDelete = async (cred: Credential) => {
     setError(null)
-    const { error: deleteError } = await supabase
-      .from('artist_credentials')
-      .delete()
-      .eq('id', cred.id)
-
-    if (deleteError) {
-      setError(deleteError.message)
-      return
+    try {
+      const res = await fetch(`/api/dashboard/credentials?id=${encodeURIComponent(cred.id)}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        setError(json.error ?? 'Failed to delete credential')
+        return
+      }
+      setCredentials((prev) => prev.filter((c) => c.id !== cred.id))
+    } catch {
+      setError('Network error — could not delete credential')
     }
-
-    if (cred.storagePath) {
-      await supabase.storage.from('credentials').remove([cred.storagePath])
-    }
-
-    setCredentials((prev) => prev.filter((c) => c.id !== cred.id))
   }
 
   const grouped: Record<CredentialType, Credential[]> = {
@@ -214,12 +217,7 @@ export function CredentialsManager({ artistId, initialCredentials }: Credentials
 
         <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} placeholder="Title" maxLength={200} aria-label="Title" />
         <input value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} className={inputCls} placeholder={activeType === 'publication' ? 'Publication name' : 'Issuing authority / body'} maxLength={200} aria-label="Issuing body" />
-        <div className="flex gap-3">
-          <input value={year} onChange={(e) => setYear(e.target.value)} type="number" className={inputCls} placeholder="Year" aria-label="Year" />
-          {activeType === 'license' && (
-            <input value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} type="date" className={`${inputCls} [color-scheme:dark]`} aria-label="Expiry date" />
-          )}
-        </div>
+        <input value={year} onChange={(e) => setYear(e.target.value)} type="number" className={inputCls} placeholder="Year" aria-label="Year" />
         {activeType === 'publication' && (
           <input value={url} onChange={(e) => setUrl(e.target.value)} type="url" className={inputCls} placeholder="https://…" aria-label="Publication URL" />
         )}

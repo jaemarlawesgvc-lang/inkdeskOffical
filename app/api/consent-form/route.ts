@@ -40,7 +40,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ConsentFormDocument({
       artistName,
       studioName: artist.studio_name,
-      contactEmail: profile?.email ?? 'support@inkdesk.co',
+      contactEmail: profile?.email ?? 'support@inkdesk.live',
     }),
   )
 

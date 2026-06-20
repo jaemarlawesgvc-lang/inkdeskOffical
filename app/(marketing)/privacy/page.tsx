@@ -24,13 +24,13 @@ export default function PrivacyPage() {
             </h2>
             <p>
               InkDesk Ltd (&quot;InkDesk&quot;, &quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a company registered in
-              England and Wales. We operate the InkDesk platform at inkdesk.co. We are
+              England and Wales. We operate the InkDesk platform at inkdesk.live. We are
               the data controller for personal data collected through the platform.
             </p>
             <p className="mt-3">
               Contact:{' '}
-              <a href="mailto:privacy@inkdesk.co" className="text-gold-500 hover:text-gold-400">
-                privacy@inkdesk.co
+              <a href="mailto:privacy@inkdesk.live" className="text-gold-500 hover:text-gold-400">
+                privacy@inkdesk.live
               </a>
             </p>
           </section>
@@ -186,8 +186,8 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-4">
               To exercise any of these rights, email{' '}
-              <a href="mailto:privacy@inkdesk.co" className="text-gold-500 hover:text-gold-400">
-                privacy@inkdesk.co
+              <a href="mailto:privacy@inkdesk.live" className="text-gold-500 hover:text-gold-400">
+                privacy@inkdesk.live
               </a>
               . We will respond within 30 days. If you are unsatisfied with our response,
               you have the right to lodge a complaint with the ICO at{' '}

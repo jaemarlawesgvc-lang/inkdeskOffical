@@ -228,10 +228,10 @@ export default function CookiesPage() {
             <p>
               Questions about our use of cookies:{' '}
               <a
-                href="mailto:privacy@inkdesk.co"
+                href="mailto:privacy@inkdesk.live"
                 className="text-gold-500 hover:text-gold-400 transition-colors"
               >
-                privacy@inkdesk.co
+                privacy@inkdesk.live
               </a>
             </p>
           </section>

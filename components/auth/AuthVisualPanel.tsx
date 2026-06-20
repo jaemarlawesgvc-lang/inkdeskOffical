@@ -37,7 +37,7 @@ export function AuthVisualPanel() {
             <span className="h-2.5 w-2.5 rounded-full bg-gold-500/60" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/50" />
             <span className="ml-3 truncate rounded bg-white/5 px-2.5 py-1 text-[11px] text-ink-400">
-              inkdesk.co/maya-ink
+              inkdesk.live/maya-ink
             </span>
           </div>
           {/* Fake hero */}

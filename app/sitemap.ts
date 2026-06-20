@@ -16,7 +16,7 @@
 import { type MetadataRoute } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.co'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.live'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ── Static marketing pages ─────────────────────────────────────────────────

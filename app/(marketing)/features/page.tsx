@@ -49,7 +49,7 @@ const SECTIONS: FeatureSection[] = [
     headline: 'A portfolio site that represents your work honestly',
     body: [
       'You upload your photos. You answer a few questions about your style and studio. InkDesk sends everything to Google Gemini, which generates a portfolio site tailored to your aesthetic — not a generic template.',
-      'The result is a clean, fast, mobile-first page at inkdesk.co/yourusername. Your booking calendar is embedded directly on the page.',
+      'The result is a clean, fast, mobile-first page at inkdesk.live/yourusername. Your booking calendar is embedded directly on the page.',
       'If Gemini is unavailable, InkDesk falls back to a high-quality default layout so your page is never blank.',
     ],
     highlights: [

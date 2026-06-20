@@ -70,7 +70,7 @@ export function ProductShowcase() {
             <span className="h-2.5 w-2.5 rounded-full bg-gold-500/60" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/50" />
             <span className="ml-3 truncate rounded bg-white/5 px-3 py-1 text-xs text-ink-400">
-              inkdesk.co/maya-ink
+              inkdesk.live/maya-ink
             </span>
           </div>
 

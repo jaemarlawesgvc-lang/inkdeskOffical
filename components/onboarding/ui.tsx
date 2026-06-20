@@ -33,7 +33,7 @@ export const textareaClass = cn(fieldClass, 'resize-none leading-relaxed')
 // legible arrow + dropdown) — avoids fragile Tailwind arbitrary bg-url values.
 export const selectClass = cn(fieldClass, 'cursor-pointer [color-scheme:dark]')
 
-/** Wrapper used for inputs that carry a fixed prefix (e.g. `inkdesk.co/`, `@`, `£`). */
+/** Wrapper used for inputs that carry a fixed prefix (e.g. `inkdesk.live/`, `@`, `£`). */
 export const prefixWrapClass = cn(
   'flex items-center overflow-hidden rounded-lg bg-ink-900/60 border border-ink-700',
   'shadow-inset-top transition-colors duration-150',

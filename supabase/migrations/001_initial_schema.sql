@@ -439,7 +439,7 @@ CREATE TABLE public.bookings (
 
 
   -- §3.2 — High-entropy token used in the unauthenticated client status link.
-  -- Client receives: inkdesk.co/booking/{access_token}/status
+  -- Client receives: inkdesk.live/booking/{access_token}/status
   -- Looked up via service-role API route; no RLS policy required.
   access_token            uuid          NOT NULL DEFAULT gen_random_uuid(),
 

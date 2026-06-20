@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   description:
     'AI-generated portfolio websites and online booking for independent tattoo artists. Start free, no credit card required.',
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.co',
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.live',
   ),
   openGraph: {
     type: 'website',

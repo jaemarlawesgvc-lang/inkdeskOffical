@@ -126,7 +126,7 @@ export function Step1Username({ defaultValues, onNext, isSaving }: Step1Props) {
 
         <div className={prefixWrapClass}>
           <span className="whitespace-nowrap select-none border-r border-ink-700 bg-ink-950/40 py-3 pl-4 pr-3 text-sm text-ink-400">
-            inkdesk.co/
+            inkdesk.live/
           </span>
           <input
             id="username"
@@ -167,7 +167,7 @@ export function Step1Username({ defaultValues, onNext, isSaving }: Step1Props) {
             Your public booking page
           </p>
           <p className="font-mono text-sm text-ink-300">
-            inkdesk.co/
+            inkdesk.live/
             <span className="font-semibold text-gold-400">{username}</span>
           </p>
         </div>

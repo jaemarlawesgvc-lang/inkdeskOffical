@@ -249,3 +249,54 @@ export async function callGemini(prompt: string): Promise<SiteData> {
     throw err
   }
 }
+
+// ---------------------------------------------------------------------------
+// callGeminiText — free-form text generation for the in-app support assistant.
+//
+// Unlike callGemini (which expects/validates the site-data JSON), this returns
+// the raw model text. It defaults to a more capable model chain so support
+// answers are higher quality, falling back through flash models if the API
+// key's region can't access the larger ones. Uses the same GEMINI_API_KEY.
+// ---------------------------------------------------------------------------
+
+const SUPPORT_MODELS = [
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-flash-latest',
+  'gemini-1.5-flash',
+]
+
+export async function callGeminiText(
+  prompt: string,
+  opts?: { system?: string; models?: string[] },
+): Promise<string> {
+  const models = opts?.models ?? SUPPORT_MODELS
+  // Prepend system context to the prompt rather than relying on the SDK's
+  // systemInstruction param (availability varies by @google/generative-ai
+  // version) — keeps this working regardless of the installed version.
+  const fullPrompt = opts?.system ? `${opts.system}\n\n${prompt}` : prompt
+  let lastError: unknown
+
+  for (const modelName of models) {
+    try {
+      const model = getClient().getGenerativeModel({ model: modelName })
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new GeminiTimeoutError()), TIMEOUT_MS)
+      })
+
+      const result = await Promise.race([model.generateContent(fullPrompt), timeoutPromise])
+      const text = result.response.text().trim()
+      if (text) return text
+    } catch (err) {
+      lastError = err
+      if (err instanceof GeminiTimeoutError) throw err
+      const message = err instanceof Error ? err.message : String(err)
+      if (isFatalKeyError(message)) throw err
+      console.warn(`[gemini] text model "${modelName}" failed (${message}) — trying next`)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('All Gemini models failed')
+}

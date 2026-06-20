@@ -37,7 +37,7 @@ Set up the following environment variables in your Vercel project:
 - \`UPSTASH_REDIS_REST_TOKEN\`
 
 ### Application Config
-- \`NEXT_PUBLIC_APP_URL\` (e.g., \`https://inkdesk.co\`)
+- \`NEXT_PUBLIC_APP_URL\` (e.g., \`https://inkdesk.live\`)
 - \`NEXT_PUBLIC_APP_NAME\` (e.g., \`InkDesk\`)
 - \`CRON_SECRET\` (Generate with \`openssl rand -hex 32\`)
 - \`GEMINI_API_KEY\`

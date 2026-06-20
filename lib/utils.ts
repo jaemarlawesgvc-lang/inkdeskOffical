@@ -262,10 +262,10 @@ export async function retry<T>(
 /**
  * Build an absolute URL from a relative path using the app's base URL.
  *
- * @example absoluteUrl('/api/health') // 'https://inkdesk.co/api/health'
+ * @example absoluteUrl('/api/health') // 'https://inkdesk.live/api/health'
  */
 export function absoluteUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.co'
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.live'
   return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
 }
 
@@ -273,7 +273,7 @@ export function absoluteUrl(path: string): string {
  * Build the public artist page URL.
  * Encapsulates the /{username} routing decision (§6.1).
  *
- * @example artistPageUrl('tomm') // 'https://inkdesk.co/tomm'
+ * @example artistPageUrl('tomm') // 'https://inkdesk.live/tomm'
  */
 export function artistPageUrl(username: string): string {
   return absoluteUrl(`/${username}`)

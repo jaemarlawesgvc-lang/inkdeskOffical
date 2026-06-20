@@ -39,10 +39,10 @@ export default function ContactPage() {
                 </dt>
                 <dd className="text-parchment-200">
                   <a
-                    href="mailto:support@inkdesk.co"
+                    href="mailto:support@inkdesk.live"
                     className="hover:text-gold-400 transition-colors"
                   >
-                    support@inkdesk.co
+                    support@inkdesk.live
                   </a>
                 </dd>
               </div>

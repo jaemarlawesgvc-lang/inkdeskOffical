@@ -17,7 +17,7 @@
 
 import { type MetadataRoute } from 'next'
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.co'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://inkdesk.live'
 
 export default function robots(): MetadataRoute.Robots {
   return {

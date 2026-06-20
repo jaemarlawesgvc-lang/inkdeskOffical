@@ -93,7 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ConsentFormFilledDocument({
         artistName,
         studioName: artist.studio_name,
-        contactEmail: artistEmail ?? 'support@inkdesk.co',
+        contactEmail: artistEmail ?? 'support@inkdesk.live',
         clientName: data.clientName,
         clientDob: data.clientDob,
         clientPhone: data.clientPhone ?? null,
