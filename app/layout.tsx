@@ -43,6 +43,7 @@ export const metadata: Metadata = {
 }
 
 import { CookieConsent } from '@/components/shared/CookieConsent'
+import { Toaster } from 'sonner'
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,17 @@ export default function RootLayout({
       <body className="font-sans bg-background text-foreground antialiased min-h-screen">
         {children}
         <CookieConsent />
+        <Toaster
+          position="top-right"
+          theme="dark"
+          richColors
+          closeButton
+          toastOptions={{
+            classNames: {
+              toast: 'bg-ink-900 border border-white/10 text-white',
+            },
+          }}
+        />
       </body>
     </html>
   )

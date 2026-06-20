@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { STYLE_TAG_OPTIONS } from '@/lib/validations/onboarding'
 import { StudioLocationPicker } from '@/components/dashboard/StudioLocationPicker'
 
@@ -35,6 +36,9 @@ interface MyPageSettingsFormProps {
 }
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DEBOUNCE_MS = 1500
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -61,10 +65,76 @@ const inputCls = 'w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2.
 
 export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsFormProps) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
   const [data, setData] = useState<MyPageData>(initialData)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [saveError, setSaveError] = useState<string | null>(null)
+  const [status, setStatus] = useState<SaveStatus>('idle')
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Refs for debouncing + cancelling in-flight requests
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortController = useRef<AbortController | null>(null)
+  const isFirstRender = useRef(true)
+  const latestData = useRef(data)
+
+  useEffect(() => {
+    latestData.current = data
+  }, [data])
+
+  const performSave = useCallback(async () => {
+    abortController.current?.abort()
+    const controller = new AbortController()
+    abortController.current = controller
+
+    setStatus('saving')
+    setErrorMessage(null)
+
+    try {
+      const res = await fetch('/api/dashboard/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artistId, ...latestData.current }),
+        signal: controller.signal,
+      })
+      const json = (await res.json()) as { error?: string }
+
+      if (!res.ok) throw new Error(json.error ?? `Save failed (${res.status})`)
+
+      setStatus('saved')
+      setLastSavedAt(new Date())
+      router.refresh()
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return
+      const message = err instanceof Error ? err.message : 'Save failed'
+      setStatus('error')
+      setErrorMessage(message)
+      toast.error(message)
+    }
+  }, [artistId, router])
+
+  // Debounced auto-save: triggers DEBOUNCE_MS after the last change.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      void performSave()
+    }, DEBOUNCE_MS)
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    }
+  }, [data, performSave])
+
+  // Cleanup on unmount: cancel any pending timer and in-flight request.
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      abortController.current?.abort()
+    }
+  }, [])
 
   const set = <K extends keyof MyPageData>(key: K, value: MyPageData[K]) => {
     setData((prev) => ({ ...prev, [key]: value }))
@@ -95,33 +165,10 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
     ))
   }
 
-  const handleSave = async () => {
-    setSaveStatus('saving')
-    setSaveError(null)
-    try {
-      const res = await fetch('/api/dashboard/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artistId, ...data }),
-      })
-      const json = (await res.json()) as { error?: string }
-      if (!res.ok) throw new Error(json.error ?? 'Save failed')
-      setSaveStatus('saved')
-      startTransition(() => router.refresh())
-      setTimeout(() => setSaveStatus('idle'), 2500)
-    } catch (err) {
-      setSaveStatus('error')
-      setSaveError(err instanceof Error ? err.message : 'Save failed')
-    }
-  }
-
   return (
     <div className="space-y-6 max-w-2xl">
-      {saveError && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm" role="alert">
-          {saveError}
-        </div>
-      )}
+      {/* Auto-save status pill */}
+      <SaveStatusPill status={status} lastSavedAt={lastSavedAt} errorMessage={errorMessage} />
 
       {/* ── Profile ── */}
       <Section title="Profile" description="Shown on your public booking page">
@@ -171,8 +218,7 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
             address={data.studioAddress}
             onAddressChange={(address) => set('studioAddress', address)}
             onCoordsChange={(lat, lng) => {
-              set('studioLat', lat)
-              set('studioLng', lng)
+              setData((prev) => ({ ...prev, studioLat: lat, studioLng: lng }))
             }}
           />
           <p className="text-xs text-white/30 mt-1">
@@ -282,19 +328,60 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
           <input id="timezone" type="text" value={data.timezone} onChange={(e) => set('timezone', e.target.value)} className={inputCls} placeholder="Europe/London" />
         </Field>
       </Section>
-
-      {/* ── Save button ── */}
-      <button
-        type="button"
-        onClick={() => void handleSave()}
-        disabled={isPending || saveStatus === 'saving'}
-        className={[
-          'w-full py-3 rounded-lg font-semibold text-sm transition-all duration-150 max-w-2xl',
-          saveStatus === 'saving' || isPending ? 'bg-white/20 text-white/40 cursor-not-allowed' : 'bg-white text-black hover:bg-white/90 active:scale-[0.98]',
-        ].join(' ')}
-      >
-        {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Save changes'}
-      </button>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Auto-save status pill
+// ---------------------------------------------------------------------------
+
+function SaveStatusPill({
+  status,
+  lastSavedAt,
+  errorMessage,
+}: {
+  status: SaveStatus
+  lastSavedAt: Date | null
+  errorMessage: string | null
+}) {
+  if (status === 'saving') {
+    return (
+      <div className="sticky top-2 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/80 text-xs font-medium" aria-live="polite">
+        <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="50 14" />
+        </svg>
+        Saving…
+      </div>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="sticky top-2 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-medium" role="alert">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+          <path fillRule="evenodd" d="M18 10A8 8 0 11.001 10 8 8 0 0118 10zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {errorMessage ?? 'Save failed'}
+      </div>
+    )
+  }
+
+  if (status === 'saved' || lastSavedAt) {
+    return (
+      <div className="sticky top-2 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium" aria-live="polite">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clipRule="evenodd" />
+        </svg>
+        Auto-saved
+        {lastSavedAt && (
+          <span className="text-emerald-300/60">
+            · {lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  return null
 }

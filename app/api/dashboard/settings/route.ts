@@ -3,9 +3,11 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
+// All fields are optional and lenient so debounced auto-save never rejects
+// transient empty values while the user is still editing a field.
 const schema = z.object({
   artistId: z.string().uuid(),
-  displayName: z.string().min(1).max(100).trim().optional(),
+  displayName: z.string().max(100).trim().optional(),
   bio: z.string().max(500).trim().optional(),
   styleTags: z.array(z.string()).max(10).optional(),
   instagramHandle: z.string().max(30).trim().optional(),
@@ -18,7 +20,7 @@ const schema = z.object({
   depositRequired: z.boolean().optional(),
   pricingNotes: z.string().max(1000).trim().optional(),
   priceTier: z.string().optional(),
-  timezone: z.string().min(1).optional(),
+  timezone: z.string().optional(),
   availability: z.array(
     z.object({
       dayOfWeek: z.number().int().min(0).max(6),
@@ -61,23 +63,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const d = parsed.data
 
   // Verify artist belongs to user
-  const { data: artist } = await supabase
+  const { data: artist, error: ownershipError } = await supabase
     .from('artists')
     .select('id')
     .eq('id', d.artistId)
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
+  if (ownershipError) {
+    console.error('[api/settings] ownership check failed:', ownershipError)
+    return NextResponse.json({ error: ownershipError.message }, { status: 500 })
+  }
   if (!artist) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const now = new Date().toISOString()
 
-  // Update artist profile + pricing dynamically
-  const updatePayload: any = {}
-  if (d.displayName !== undefined) updatePayload.display_name = d.displayName
-  if (d.bio !== undefined) updatePayload.bio = d.bio
+  // Build update payload dynamically. Empty strings for text fields are saved as null.
+  const updatePayload: Record<string, unknown> = {}
+  if (d.displayName !== undefined) updatePayload.display_name = d.displayName || null
+  if (d.bio !== undefined) updatePayload.bio = d.bio || null
   if (d.styleTags !== undefined) updatePayload.style_tags = d.styleTags
-  if (d.instagramHandle !== undefined) updatePayload.instagram_handle = d.instagramHandle
+  if (d.instagramHandle !== undefined) updatePayload.instagram_handle = d.instagramHandle.replace(/^@/, '') || null
   if (d.studioName !== undefined) updatePayload.studio_name = d.studioName || null
   if (d.studioAddress !== undefined) updatePayload.studio_address = d.studioAddress || null
   if (d.studioLat !== undefined) updatePayload.studio_lat = d.studioLat ?? null
@@ -91,33 +97,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (d.emailReminders !== undefined) updatePayload.email_reminders = d.emailReminders
   if (d.emailAftercare !== undefined) updatePayload.email_aftercare = d.emailAftercare
 
-  let artistError = null
   if (Object.keys(updatePayload).length > 0) {
     updatePayload.updated_at = now
-    const { error: updateErr } = await supabase
-      .from('artists')
-      .update(updatePayload)
-      .eq('id', d.artistId)
-    artistError = updateErr
 
-    // Graceful fallback if price_tier column doesn't exist yet
-    if (artistError && (artistError.message.includes('price_tier') || artistError.code === '42703')) {
-      delete updatePayload.price_tier
-      const retry = await supabase
+    // Retry up to 3 times, dropping any unknown columns (Postgres 42703) as we go.
+    let attempts = 0
+    while (attempts < 4) {
+      const { error: updateErr } = await supabase
         .from('artists')
         .update(updatePayload)
         .eq('id', d.artistId)
-      artistError = retry.error
-    }
-  }
 
-  if (artistError) {
-    return NextResponse.json({ error: 'Failed to save profile' }, { status: 500 })
+      if (!updateErr) break
+
+      // Column doesn't exist on this DB — strip it and retry.
+      const missingColumnMatch =
+        updateErr.code === '42703' &&
+        /column "?(\w+)"? of relation/.exec(updateErr.message)
+      if (missingColumnMatch?.[1] && missingColumnMatch[1] in updatePayload) {
+        console.warn(`[api/settings] dropping unknown column ${missingColumnMatch[1]}`)
+        delete updatePayload[missingColumnMatch[1]]
+        attempts++
+        continue
+      }
+
+      console.error('[api/settings] artist update failed:', updateErr)
+      return NextResponse.json({ error: updateErr.message }, { status: 500 })
+    }
   }
 
   // Resync availability slots only if provided in request body
   if (d.availability !== undefined) {
-    await supabase.from('artist_availability').delete().eq('artist_id', d.artistId)
+    const { error: deleteErr } = await supabase
+      .from('artist_availability')
+      .delete()
+      .eq('artist_id', d.artistId)
+
+    if (deleteErr) {
+      console.error('[api/settings] availability delete failed:', deleteErr)
+      return NextResponse.json({ error: deleteErr.message }, { status: 500 })
+    }
 
     if (d.availability.length > 0) {
       const timezone = d.timezone || 'Europe/London'
@@ -131,7 +150,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         })),
       )
       if (availError) {
-        return NextResponse.json({ error: 'Failed to save availability' }, { status: 500 })
+        console.error('[api/settings] availability insert failed:', availError)
+        return NextResponse.json({ error: availError.message }, { status: 500 })
       }
     }
   }

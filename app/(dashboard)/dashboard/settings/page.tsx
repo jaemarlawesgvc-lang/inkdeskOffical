@@ -17,12 +17,13 @@ export default async function SettingsPage() {
 
   if (!user) redirect('/login')
 
-  const { data: artist } = await supabase
+  const { data: artist, error: artistError } = await supabase
     .from('artists')
     .select('id, username, email_booking_confirmation, email_reminders, email_aftercare')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
+  if (artistError) console.error('[settings] artist query failed:', artistError)
   if (!artist) redirect('/onboarding')
 
   const { data: subscription } = await supabase

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import type { Plan } from '@/lib/stripe/plans'
 import { PLAN_DISPLAY } from '@/lib/stripe/plans'
 import { UpgradeModal } from '@/components/dashboard/UpgradeModal'
@@ -37,7 +38,6 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
   const [isPending, startTransition] = useTransition()
   const [data, setData] = useState<SettingsData>(initialData)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [billingLoading, setBillingLoading] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
@@ -48,7 +48,6 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
 
   const handleSave = async () => {
     setSaveStatus('saving')
-    setSaveError(null)
     try {
       const res = await fetch('/api/dashboard/settings', {
         method: 'POST',
@@ -56,13 +55,14 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
         body: JSON.stringify({ artistId, ...data }),
       })
       const json = (await res.json()) as { error?: string }
-      if (!res.ok) throw new Error(json.error ?? 'Save failed')
+      if (!res.ok) throw new Error(json.error ?? `Save failed (${res.status})`)
       setSaveStatus('saved')
+      toast.success('Profile saved successfully!')
       startTransition(() => router.refresh())
       setTimeout(() => setSaveStatus('idle'), 2500)
     } catch (err) {
       setSaveStatus('error')
-      setSaveError(err instanceof Error ? err.message : 'Save failed')
+      toast.error(err instanceof Error ? err.message : 'Save failed')
     }
   }
 
@@ -72,9 +72,9 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
       const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
       const json = (await res.json()) as { url?: string; error?: string }
       if (json.url) window.location.href = json.url
-      else setSaveError(json.error ?? 'Could not open billing portal')
+      else toast.error(json.error ?? 'Could not open billing portal')
     } catch {
-      setSaveError('Could not open billing portal')
+      toast.error('Could not open billing portal')
     } finally {
       setBillingLoading(false)
     }
@@ -87,21 +87,15 @@ export function SettingsForm({ artistId, plan, initialData }: SettingsFormProps)
       if (res.ok) window.location.href = '/login?deleted=true'
       else {
         const json = (await res.json()) as { error?: string }
-        setSaveError(json.error ?? 'Could not delete account')
+        toast.error(json.error ?? 'Could not delete account')
       }
     } catch {
-      setSaveError('Could not delete account')
+      toast.error('Could not delete account')
     }
   }
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {saveError && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm" role="alert">
-          {saveError}
-        </div>
-      )}
-
       {/* ── Billing ── */}
       <Section id="billing" title="Billing" description="Manage your subscription and payment details">
         <div className="flex items-center justify-between">
