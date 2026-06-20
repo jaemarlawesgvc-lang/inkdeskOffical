@@ -95,7 +95,7 @@ export function ClientChatView() {
           </div>
           <div>
             <p className="text-sm font-semibold text-white">{artistName}</p>
-            <p className="text-[11px] text-white/40">InkDesk Chat</p>
+            <p className="text-[11px] text-white/40">Inkquire Chat</p>
           </div>
         </div>
       </header>

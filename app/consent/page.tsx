@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { ConsentFormView } from '@/components/public/ConsentFormView'
 
 export const metadata: Metadata = {
-  title: 'Consent Form — InkDesk',
+  title: 'Consent Form — Inkquire',
   robots: { index: false, follow: false },
 }
 

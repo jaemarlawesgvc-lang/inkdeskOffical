@@ -13,9 +13,9 @@ const config: Config = {
 
   theme: {
     extend: {
-      // ─── InkDesk Colour Palette ────────────────────────────────────────────
+      // ─── Inkquire Colour Palette ────────────────────────────────────────────
       colors: {
-        // Core dark palette — the canvas of every InkDesk surface
+        // Core dark palette — the canvas of every Inkquire surface
         ink: {
           50:  '#f2f2f2',
           100: '#e6e6e6',

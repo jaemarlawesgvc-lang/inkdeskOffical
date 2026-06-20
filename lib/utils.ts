@@ -1,7 +1,7 @@
 /**
  * lib/utils.ts
  *
- * Utility functions used throughout InkDesk.
+ * Utility functions used throughout Inkquire.
  * Safe to import in both server and client code — no env or DB dependencies.
  */
 
@@ -26,7 +26,7 @@ export function cn(...inputs: ClassValue[]): string {
 
 /**
  * Format an amount (in major units) as a localised currency string.
- * Defaults to GBP / en-GB for the InkDesk target market.
+ * Defaults to GBP / en-GB for the Inkquire target market.
  *
  * @example formatCurrency(19)     // '£19.00'
  * @example formatCurrency(49, 'EUR', 'de-DE') // '49,00 €'
@@ -302,6 +302,6 @@ export function assertDefined<T>(
   message: string,
 ): asserts value is T {
   if (value === null || value === undefined) {
-    throw new Error(`[InkDesk] Assertion failed: ${message}`)
+    throw new Error(`[Inkquire] Assertion failed: ${message}`)
   }
 }

@@ -23,7 +23,7 @@ export function FeedShowcase() {
             <span className="text-ink-400">now it takes the booking.</span>
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-ink-400">
-            InkDesk lays your work out the way clients already browse, then makes every piece
+            Inkquire lays your work out the way clients already browse, then makes every piece
             a path to your calendar. Tap a tattoo, request that style, pay the deposit. Done.
           </p>
         </div>
@@ -34,7 +34,7 @@ export function FeedShowcase() {
 
           {/* Powered-by tag */}
           <div className="absolute right-4 top-4 z-20 rounded-full border border-gold-500/25 bg-ink-950/70 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wider text-gold-400 backdrop-blur-sm">
-            Made with InkDesk
+            Made with Inkquire
           </div>
 
           {/* Profile header */}

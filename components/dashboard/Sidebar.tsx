@@ -126,7 +126,7 @@ export function Sidebar({ username }: SidebarProps) {
       <div className="relative px-6 py-5">
         <span className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight text-white">
           <span className="h-2 w-2 rounded-full bg-gold-500 shadow-gold" aria-hidden="true" />
-          InkDesk
+          Inkquire
         </span>
         <p className="mt-1 pl-[1.1rem] text-[0.65rem] font-medium uppercase tracking-[0.22em] text-ink-500">
           Studio

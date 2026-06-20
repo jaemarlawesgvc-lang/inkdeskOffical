@@ -147,7 +147,7 @@ export function ProductShowcase() {
 
         {/* Caption */}
         <p className="mt-6 text-center text-sm text-ink-500">
-          Every InkDesk site looks like this — generated from your portfolio in minutes.
+          Every Inkquire site looks like this — generated from your portfolio in minutes.
         </p>
       </div>
     </section>

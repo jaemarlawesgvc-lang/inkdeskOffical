@@ -3,7 +3,7 @@
 /**
  * components/onboarding/ui.tsx
  *
- * Shared presentational primitives for the InkDesk onboarding flow.
+ * Shared presentational primitives for the Inkquire onboarding flow.
  *
  * These keep every step visually consistent (premium ink/parchment/gold art
  * direction) without duplicating Tailwind class strings across five files.

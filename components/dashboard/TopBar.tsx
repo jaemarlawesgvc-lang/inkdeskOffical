@@ -23,7 +23,7 @@ export function TopBar({ displayName, plan }: TopBarProps) {
       {/* Mobile wordmark */}
       <span className="flex items-center gap-2 font-display text-base font-bold tracking-tight text-white lg:hidden">
         <span className="h-1.5 w-1.5 rounded-full bg-gold-500 shadow-gold" aria-hidden="true" />
-        InkDesk
+        Inkquire
       </span>
 
       {/* Spacer on desktop */}

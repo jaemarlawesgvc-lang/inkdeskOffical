@@ -1,5 +1,5 @@
 /**
- * Demo tattoo "feed" used across the InkDesk marketing homepage.
+ * Demo tattoo "feed" used across the Inkquire marketing homepage.
  *
  * Images are the four local portfolio assets shipped in /public. To extend the
  * showcase, drop more files into /public/assets/images/portfolio and add rows

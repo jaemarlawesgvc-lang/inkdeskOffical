@@ -5,18 +5,18 @@ import { buttonVariants } from '@/components/ui/button'
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'InkDesk is built to help independent tattoo artists run their business without the admin overhead.',
+    'Inkquire is built to help independent tattoo artists run their business without the admin overhead.',
   alternates: { canonical: '/about' },
   openGraph: {
-    title: 'About — InkDesk',
+    title: 'About — Inkquire',
     description:
-      'InkDesk is built to help independent tattoo artists run their business without the admin overhead.',
+      'Inkquire is built to help independent tattoo artists run their business without the admin overhead.',
     url: '/about',
   },
   twitter: {
-    title: 'About — InkDesk',
+    title: 'About — Inkquire',
     description:
-      'InkDesk is built to help independent tattoo artists run their business without the admin overhead.',
+      'Inkquire is built to help independent tattoo artists run their business without the admin overhead.',
   },
 }
 
@@ -35,7 +35,7 @@ const VALUES = [
   },
   {
     title: 'Built to last',
-    body: 'InkDesk is built on infrastructure designed for years of operation — not a prototype that pivots next month. Your site and bookings need to be reliable.',
+    body: 'Inkquire is built on infrastructure designed for years of operation — not a prototype that pivots next month. Your site and bookings need to be reliable.',
   },
 ] as const
 
@@ -52,7 +52,7 @@ export default function AboutPage() {
             </span>
           </h1>
           <p className="text-lg text-ink-400 max-w-xl mx-auto leading-relaxed">
-            InkDesk exists because talented, independent tattoo artists deserve
+            Inkquire exists because talented, independent tattoo artists deserve
             professional tools without the enterprise price tag.
           </p>
         </div>
@@ -85,7 +85,7 @@ export default function AboutPage() {
                 the whole thing.
               </p>
               <p className="text-ink-400 leading-relaxed">
-                InkDesk is purpose-built for the independent artist: one
+                Inkquire is purpose-built for the independent artist: one
                 platform that generates your portfolio site, takes your
                 bookings, collects your deposits, and sends your follow-up
                 emails — while you focus on the actual work.

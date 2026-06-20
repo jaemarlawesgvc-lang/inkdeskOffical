@@ -22,8 +22,8 @@ const fontDisplay = Playfair_Display({
 
 export const metadata: Metadata = {
   title: {
-    default: 'InkDesk — Bookings & Portfolio for Tattoo Artists',
-    template: '%s | InkDesk',
+    default: 'Inkquire — Bookings & Portfolio for Tattoo Artists',
+    template: '%s | Inkquire',
   },
   description:
     'AI-generated portfolio websites and online booking for independent tattoo artists. Start free, no credit card required.',
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_GB',
-    siteName: 'InkDesk',
+    siteName: 'Inkquire',
   },
   twitter: {
     card: 'summary_large_image',
@@ -55,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      // InkDesk is dark-mode-first; class="dark" is permanent.
+      // Inkquire is dark-mode-first; class="dark" is permanent.
       // Tailwind's darkMode: ['class'] reads this to activate dark variants.
       className={`dark ${fontSans.variable} ${fontDisplay.variable}`}
       suppressHydrationWarning

@@ -40,7 +40,7 @@ export function Hero() {
 
         {/* Sub-headline */}
         <p className="mx-auto max-w-2xl text-lg sm:text-xl text-ink-400 leading-relaxed mb-12">
-          InkDesk generates a premium portfolio site from your photos, takes
+          Inkquire generates a premium portfolio site from your photos, takes
           bookings automatically, and processes deposits — so you can focus on
           what you do best.
         </p>

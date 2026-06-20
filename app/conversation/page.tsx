@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { ClientChatView } from '@/components/public/ClientChatView'
 
 export const metadata: Metadata = {
-  title: 'Chat with your artist — InkDesk',
+  title: 'Chat with your artist — Inkquire',
   robots: { index: false, follow: false },
 }
 

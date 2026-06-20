@@ -60,7 +60,7 @@ export async function generateMetadata({
   const artist = await loadArtistWithFaqs(username)
 
   if (!artist || !artist.onboarding_complete) {
-    return { title: 'Artist not found — InkDesk', robots: { index: false, follow: false } }
+    return { title: 'Artist not found — Inkquire', robots: { index: false, follow: false } }
   }
 
   const name = artist.display_name ?? artist.username

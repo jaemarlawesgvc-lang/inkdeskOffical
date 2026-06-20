@@ -18,7 +18,7 @@ import { z } from 'zod'
 // Guard: crash fast if this module is accidentally bundled client-side.
 if (typeof window !== 'undefined') {
   throw new Error(
-    '[InkDesk] lib/env.ts was imported in a browser context. ' +
+    '[Inkquire] lib/env.ts was imported in a browser context. ' +
       'This is a server-only module. ' +
       'Use lib/env.client.ts for NEXT_PUBLIC_ variables in client components.',
   )
@@ -163,7 +163,7 @@ function validateEnv(): Env {
     [
       '',
       '╔══════════════════════════════════════════════════════════════════╗',
-      '║   INKDESK — ENVIRONMENT VALIDATION WARNINGS (app still booting)  ║',
+      '║   INKQUIRE — ENVIRONMENT VALIDATION WARNINGS (app still booting)  ║',
       '╚══════════════════════════════════════════════════════════════════╝',
       '',
       'The following variables are missing or invalid. Features that depend on',

@@ -3,16 +3,16 @@ import { ContactForm } from './contact-form'
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description: 'Get in touch with the InkDesk team.',
+  description: 'Get in touch with the Inkquire team.',
   alternates: { canonical: '/contact' },
   openGraph: {
-    title: 'Contact — InkDesk',
-    description: 'Get in touch with the InkDesk team.',
+    title: 'Contact — Inkquire',
+    description: 'Get in touch with the Inkquire team.',
     url: '/contact',
   },
   twitter: {
-    title: 'Contact — InkDesk',
-    description: 'Get in touch with the InkDesk team.',
+    title: 'Contact — Inkquire',
+    description: 'Get in touch with the Inkquire team.',
   },
 }
 
@@ -27,7 +27,7 @@ export default function ContactPage() {
               Get in touch
             </h1>
             <p className="text-lg text-ink-400 leading-relaxed mb-10">
-              Have a question about InkDesk, a feature request, or need help
+              Have a question about Inkquire, a feature request, or need help
               with your account? Send us a message and we&apos;ll get back to you
               within 48 hours.
             </p>

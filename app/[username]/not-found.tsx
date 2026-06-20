@@ -13,7 +13,7 @@ export default function ArtistNotFound() {
         href="/"
         className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors"
       >
-        Back to InkDesk
+        Back to Inkquire
       </Link>
     </div>
   )

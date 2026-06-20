@@ -88,7 +88,7 @@ export function ConsentFormDocument({ artistName, studioName, contactEmail }: Co
         <View style={styles.header}>
           <View style={styles.brandRow}>
             <View style={styles.brandDot} />
-            <Text style={styles.brand}>INKDESK</Text>
+            <Text style={styles.brand}>INKQUIRE</Text>
           </View>
           <Text style={styles.title}>Tattoo Consent Form</Text>
           <Text style={styles.subtitle}>
@@ -173,7 +173,7 @@ export function ConsentFormDocument({ artistName, studioName, contactEmail }: Co
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerBrand}>Provided by {artistName} via InkDesk</Text>
+          <Text style={styles.footerBrand}>Provided by {artistName} via Inkquire</Text>
           <Text style={styles.footerContact}>Questions? {contactEmail}</Text>
         </View>
       </Page>

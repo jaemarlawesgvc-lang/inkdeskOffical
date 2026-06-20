@@ -3,7 +3,7 @@ import { LoginForm } from '@/components/auth/login-form'
 
 export const metadata: Metadata = {
   title: 'Sign in',
-  description: 'Sign in to your InkDesk account.',
+  description: 'Sign in to your Inkquire account.',
 }
 
 interface LoginPageProps {

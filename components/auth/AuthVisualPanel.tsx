@@ -25,7 +25,7 @@ export function AuthVisualPanel() {
 
       {/* Wordmark */}
       <div className="relative z-10 font-display text-xl font-bold text-parchment-100">
-        Ink<span className="text-gold-500">Desk</span>
+        Ink<span className="text-gold-500">quire</span>
       </div>
 
       {/* Centrepiece: a stylised browser-frame mockup of a booking page */}

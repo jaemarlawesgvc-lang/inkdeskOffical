@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Cookie Policy',
-  description: 'How InkDesk uses cookies and how to manage them.',
+  description: 'How Inkquire uses cookies and how to manage them.',
   alternates: { canonical: '/cookies' },
   robots: { index: true, follow: false },
 }
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 const COOKIE_TABLE = [
   {
     name:     'sb-*-auth-token',
-    provider: 'Supabase / InkDesk',
+    provider: 'Supabase / Inkquire',
     purpose:  'Maintains your authenticated login session. Required for the platform to function.',
     duration: 'Session / 1 week',
     type:     'Essential',
@@ -55,10 +55,10 @@ export default function CookiesPage() {
 
           <section>
             <h2 className="font-display text-2xl font-bold text-parchment-100 mb-4">
-              How InkDesk uses cookies
+              How Inkquire uses cookies
             </h2>
             <p className="mb-6">
-              InkDesk uses a small number of cookies, all of which serve a clear
+              Inkquire uses a small number of cookies, all of which serve a clear
               purpose. We do not use advertising cookies, retargeting cookies, or
               third-party analytics cookies that track you across other websites.
             </p>
@@ -137,7 +137,7 @@ export default function CookiesPage() {
                 <p>
                   Required for the platform to function. Without them you cannot log in,
                   maintain a session, or process payments. These cannot be disabled while
-                  using InkDesk.
+                  using Inkquire.
                 </p>
               </div>
               <div>
@@ -206,7 +206,7 @@ export default function CookiesPage() {
             </ul>
             <p className="mt-5">
               Note that disabling essential cookies will prevent you from logging in to
-              InkDesk or using its core features.
+              Inkquire or using its core features.
             </p>
           </section>
 

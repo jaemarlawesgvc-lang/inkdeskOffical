@@ -1,7 +1,7 @@
 /**
  * app/robots.ts
  *
- * Generates robots.txt for InkDesk.
+ * Generates robots.txt for Inkquire.
  *
  * Disallows crawlers from:
  *   - /dashboard/*  (authenticated artist area)

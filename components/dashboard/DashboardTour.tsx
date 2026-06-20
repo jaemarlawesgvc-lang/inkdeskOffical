@@ -85,7 +85,7 @@ const STEPS: TourStep[] = [
   {
     selectors: ['[data-tour="help"]'],
     title: 'Stuck on anything?',
-    body: 'The AI assistant can help with anything in InkDesk — just ask.',
+    body: 'The AI assistant can help with anything in Inkquire — just ask.',
   },
 ]
 

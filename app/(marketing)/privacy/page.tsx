@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'How InkDesk collects, uses, and protects your personal data.',
+  description: 'How Inkquire collects, uses, and protects your personal data.',
   alternates: { canonical: '/privacy' },
   robots: { index: true, follow: false },
 }
@@ -23,8 +23,8 @@ export default function PrivacyPage() {
               1. Who we are
             </h2>
             <p>
-              InkDesk Ltd (&quot;InkDesk&quot;, &quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a company registered in
-              England and Wales. We operate the InkDesk platform at inkdesk.live. We are
+              Inkquire Ltd (&quot;Inkquire&quot;, &quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a company registered in
+              England and Wales. We operate the Inkquire platform at inkdesk.live. We are
               the data controller for personal data collected through the platform.
             </p>
             <p className="mt-3">
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong className="text-parchment-200">Payment data</strong> — payment
-                method details are processed by Stripe and never stored on InkDesk
+                method details are processed by Stripe and never stored on Inkquire
                 servers. We receive confirmation of payment status only.
               </li>
               <li>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
                 </p>
                 <p>
                   We process your account, profile, and booking data to operate the
-                  InkDesk platform, generate your portfolio site, process bookings, and
+                  Inkquire platform, generate your portfolio site, process bookings, and
                   facilitate payments between you and your clients.
                 </p>
               </div>

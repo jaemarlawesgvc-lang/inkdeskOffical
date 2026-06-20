@@ -339,7 +339,7 @@ export const DAYS_OF_WEEK = [
 // ─── SEO Defaults ─────────────────────────────────────────────────────────────
 
 export const DEFAULT_META = {
-  title:       'InkDesk — Bookings & Portfolio for Tattoo Artists',
+  title:       'Inkquire — Bookings & Portfolio for Tattoo Artists',
   description: 'AI-generated portfolio websites and online booking for independent tattoo artists. Start free.',
   twitterHandle: '@inkdesk',
 } as const

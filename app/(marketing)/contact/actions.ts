@@ -57,7 +57,7 @@ export async function submitContact(
     from:      env.RESEND_FROM_EMAIL,
     to:        env.RESEND_FROM_EMAIL,
     reply_to:  email,
-    subject:   `InkDesk contact: ${subject}`,
+    subject:   `Inkquire contact: ${subject}`,
     text:    `From: ${name} <${email}>\n\n${message}`,
   })
 

@@ -40,7 +40,7 @@ export function HomeHero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-300">
-            InkDesk turns your portfolio into a striking website that takes bookings and
+            Inkquire turns your portfolio into a striking website that takes bookings and
             collects deposits — generated from your photos in seconds. The studio runs itself;
             you keep tattooing.
           </p>
@@ -70,7 +70,7 @@ export function HomeHero() {
               ))}
             </div>
             <p className="text-sm text-ink-400">
-              <span className="font-semibold text-parchment-200">1,200+ artists</span> book through InkDesk
+              <span className="font-semibold text-parchment-200">1,200+ artists</span> book through Inkquire
             </p>
           </div>
         </div>

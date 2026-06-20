@@ -1,7 +1,7 @@
 const TESTIMONIALS = [
   {
     quote:
-      'InkDesk sorted my booking chaos in one afternoon. Now I take deposits automatically and clients actually show up to their appointments.',
+      'Inkquire sorted my booking chaos in one afternoon. Now I take deposits automatically and clients actually show up to their appointments.',
     name:     'Mia Torres',
     role:     'Traditional artist · London',
     initials: 'MT',
@@ -15,7 +15,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      'The portfolio site InkDesk generated looks better than anything I could have paid an agency for. My inquiry rate doubled in the first month.',
+      'The portfolio site Inkquire generated looks better than anything I could have paid an agency for. My inquiry rate doubled in the first month.',
     name:     'Priya Subramaniam',
     role:     'Fine-line artist · Manchester',
     initials: 'PS',

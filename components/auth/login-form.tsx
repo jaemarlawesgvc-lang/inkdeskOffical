@@ -71,7 +71,7 @@ export function LoginForm({ successMessage, errorMessage }: LoginFormProps) {
           Welcome back
         </h1>
         <p className="mb-7 text-sm text-ink-400">
-          Sign in to your InkDesk account.
+          Sign in to your Inkquire account.
         </p>
 
         {/* URL-param banners */}

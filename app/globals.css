@@ -8,7 +8,7 @@
    * All values are space-separated HSL components (no `hsl()` wrapper) so
    * Tailwind can compose them with opacity modifiers: e.g. `bg-background/80`.
    *
-   * InkDesk is dark-mode-first. A single set of variables is defined here;
+   * Inkquire is dark-mode-first. A single set of variables is defined here;
    * the root <html> element carries class="dark" at all times.
    */
   :root {
@@ -30,7 +30,7 @@
     --muted:             0 0% 12%;
     --muted-foreground:  0 0% 55%;
 
-    /* Accent (same as primary for InkDesk gold) */
+    /* Accent (same as primary for Inkquire gold) */
     --accent:            43 100% 50%;
     --accent-foreground: 0 0% 3%;
 

@@ -6,7 +6,7 @@ import { DashboardTour } from '@/components/dashboard/DashboardTour'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: { default: 'Dashboard', template: '%s — InkDesk' },
+  title: { default: 'Dashboard', template: '%s — Inkquire' },
   robots: { index: false, follow: false },
 }
 

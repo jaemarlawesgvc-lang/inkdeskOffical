@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 
 export const metadata: Metadata = {
-  title: 'Set up your InkDesk profile',
+  title: 'Set up your Inkquire profile',
   description: 'Complete your artist profile to start taking bookings.',
   robots: { index: false, follow: false },
 }

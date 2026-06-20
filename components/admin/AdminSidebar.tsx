@@ -71,7 +71,7 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <span className="text-white font-bold text-lg tracking-tight">InkDesk</span>
+          <span className="text-white font-bold text-lg tracking-tight">Inkquire</span>
           <span className="px-2 py-0.5 bg-crimson-500/20 text-crimson-400 text-xs font-semibold rounded-full">
             Admin
           </span>

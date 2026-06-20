@@ -36,7 +36,7 @@ export function HomeCTA() {
           already scrolling.
         </h2>
         <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink-300">
-          Build your InkDesk site free and try Pro for 30 days — bookings, deposits and
+          Build your Inkquire site free and try Pro for 30 days — bookings, deposits and
           automations included. No card to start.
         </p>
 

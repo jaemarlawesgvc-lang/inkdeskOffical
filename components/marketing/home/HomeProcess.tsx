@@ -10,7 +10,7 @@ const STEPS = [
   },
   {
     n: '02',
-    title: 'InkDesk builds it',
+    title: 'Inkquire builds it',
     body: 'A full site, gallery and booking page — designed, written and live in seconds.',
   },
   {
@@ -57,7 +57,7 @@ export function HomeProcess() {
             <span aria-hidden className="font-display text-5xl leading-none text-gold-500">“</span>
             <blockquote className="-mt-4 font-display text-2xl font-bold leading-snug text-parchment-100 sm:text-3xl">
               I went from DMs and lost deposits to a fully-booked month. My clients think I hired a
-              studio manager. It&apos;s just InkDesk.
+              studio manager. It&apos;s just Inkquire.
             </blockquote>
             <figcaption className="mt-4 text-sm text-ink-400">
               <span className="font-semibold text-parchment-200">Kade R.</span> · Biomechanical &amp; abstract · @kade.bio

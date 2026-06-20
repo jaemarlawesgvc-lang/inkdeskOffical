@@ -10,7 +10,7 @@ type Msg = { role: 'user' | 'assistant'; content: string }
 const GREETING: Msg = {
   role: 'assistant',
   content:
-    "Hi! I'm your InkDesk assistant. Ask me how to do anything - set up your page, take bookings, add credentials, change your colours, upgrade, and more. If you'd rather talk to a person, just say so.",
+    "Hi! I'm your Inkquire assistant. Ask me how to do anything - set up your page, take bookings, add credentials, change your colours, upgrade, and more. If you'd rather talk to a person, just say so.",
 }
 
 // Render assistant text: keep line breaks, render **bold**, and turn any email
@@ -168,7 +168,7 @@ export function SupportModal() {
                   </button>
                 )}
                 <h2 className="text-base font-bold text-white">
-                  {view === 'menu' ? 'Get help' : 'InkDesk Assistant'}
+                  {view === 'menu' ? 'Get help' : 'Inkquire Assistant'}
                 </h2>
                 {view === 'chat' && (
                   <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[0.65rem] font-semibold text-emerald-400">AI</span>
@@ -196,7 +196,7 @@ export function SupportModal() {
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-white">Ask the AI assistant</span>
-                    <span className="block text-xs text-white/45">Instant, step-by-step help with anything on InkDesk</span>
+                    <span className="block text-xs text-white/45">Instant, step-by-step help with anything on Inkquire</span>
                   </span>
                 </button>
 
@@ -258,7 +258,7 @@ export function SupportModal() {
                           void send()
                         }
                       }}
-                      placeholder="Ask anything about InkDesk…"
+                      placeholder="Ask anything about Inkquire…"
                       maxLength={2000}
                       className="flex-1 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 focus:border-white/40 focus:outline-none"
                       aria-label="Message"

@@ -5,7 +5,7 @@ import { AdminTopBar } from '@/components/admin/AdminTopBar'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: { default: 'Admin', template: '%s — InkDesk Admin' },
+  title: { default: 'Admin', template: '%s — Inkquire Admin' },
   robots: { index: false, follow: false },
 }
 

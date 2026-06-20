@@ -62,7 +62,7 @@ export function Nav() {
             className="flex shrink-0 items-center gap-2 font-display text-xl font-extrabold tracking-tight text-parchment-100"
           >
             <span className="h-2 w-2 rounded-full bg-gold-500 shadow-gold" aria-hidden="true" />
-            InkDesk
+            Inkquire
           </Link>
 
           {/* ── Desktop nav ── */}

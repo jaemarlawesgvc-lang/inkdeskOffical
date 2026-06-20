@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     'Simple pricing for tattoo artists. Free forever to start. Upgrade to Pro or Studio when you need more.',
   alternates: { canonical: '/pricing' },
   openGraph: {
-    title: 'Pricing — InkDesk',
+    title: 'Pricing — Inkquire',
     description:
       'Simple pricing for tattoo artists. Free forever to start. Upgrade to Pro or Studio when you need more.',
     url: '/pricing',
   },
   twitter: {
-    title: 'Pricing — InkDesk',
+    title: 'Pricing — Inkquire',
     description:
       'Simple pricing for tattoo artists. Free forever to start. Upgrade to Pro or Studio when you need more.',
   },
@@ -78,8 +78,8 @@ const FAQ = [
     a: 'Your portfolio and booking history stay accessible for 30 days after cancellation. You can export a full CSV of your client and booking data at any time.',
   },
   {
-    q: 'Does InkDesk take a commission on bookings?',
-    a: 'No. InkDesk never takes a cut of your bookings or deposits. You pay the flat monthly subscription and Stripe\'s standard card processing fee (approximately 1.5% + 20p per UK card transaction).',
+    q: 'Does Inkquire take a commission on bookings?',
+    a: 'No. Inkquire never takes a cut of your bookings or deposits. You pay the flat monthly subscription and Stripe\'s standard card processing fee (approximately 1.5% + 20p per UK card transaction).',
   },
   {
     q: 'Do I need a Stripe account?',

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'The terms governing your use of the InkDesk platform.',
+  description: 'The terms governing your use of the Inkquire platform.',
   alternates: { canonical: '/terms' },
   robots: { index: true, follow: false },
 }
@@ -23,7 +23,7 @@ export default function TermsPage() {
               1. Acceptance
             </h2>
             <p>
-              By creating an account or using the InkDesk platform (the &quot;Service&quot;), you
+              By creating an account or using the Inkquire platform (the &quot;Service&quot;), you
               agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy
               Policy. If you do not agree, do not use the Service.
             </p>
@@ -34,7 +34,7 @@ export default function TermsPage() {
               2. The Service
             </h2>
             <p>
-              InkDesk provides tattoo artists with tools to create portfolio websites,
+              Inkquire provides tattoo artists with tools to create portfolio websites,
               accept client bookings, and process deposit payments. We reserve the right
               to modify, suspend, or discontinue any part of the Service at any time,
               with reasonable notice where practical.
@@ -47,7 +47,7 @@ export default function TermsPage() {
             </h2>
             <ul className="list-disc list-inside space-y-2">
               <li>
-                You must be at least 18 years old to create an InkDesk account.
+                You must be at least 18 years old to create an Inkquire account.
               </li>
               <li>
                 You are responsible for maintaining the confidentiality of your login
@@ -74,7 +74,7 @@ export default function TermsPage() {
             </p>
             <ul className="list-disc list-inside space-y-2">
               <li>
-                You authorise InkDesk to charge your payment method on a recurring
+                You authorise Inkquire to charge your payment method on a recurring
                 monthly basis.
               </li>
               <li>
@@ -86,7 +86,7 @@ export default function TermsPage() {
                 current billing period and no refunds are issued for partial periods.
               </li>
               <li>
-                InkDesk reserves the right to change prices with 30 days&apos; written notice.
+                Inkquire reserves the right to change prices with 30 days&apos; written notice.
               </li>
             </ul>
           </section>
@@ -122,9 +122,9 @@ export default function TermsPage() {
               6. Your content
             </h2>
             <p>
-              You retain ownership of all content you upload to InkDesk, including
+              You retain ownership of all content you upload to Inkquire, including
               portfolio images, booking descriptions, and client communications. By
-              uploading content, you grant InkDesk a non-exclusive, royalty-free licence
+              uploading content, you grant Inkquire a non-exclusive, royalty-free licence
               to store, display, and process it solely for the purpose of providing the
               Service.
             </p>
@@ -139,9 +139,9 @@ export default function TermsPage() {
               7. Intellectual property
             </h2>
             <p>
-              The InkDesk platform, including its software, design, and documentation,
-              is owned by InkDesk Ltd and protected by copyright and other intellectual
-              property laws. Nothing in these Terms transfers any InkDesk intellectual
+              The Inkquire platform, including its software, design, and documentation,
+              is owned by Inkquire Ltd and protected by copyright and other intellectual
+              property laws. Nothing in these Terms transfers any Inkquire intellectual
               property to you.
             </p>
           </section>
@@ -151,14 +151,14 @@ export default function TermsPage() {
               8. Limitation of liability
             </h2>
             <p>
-              To the maximum extent permitted by law, InkDesk shall not be liable for
+              To the maximum extent permitted by law, Inkquire shall not be liable for
               any indirect, incidental, special, or consequential damages, including loss
               of revenue, loss of data, or business interruption, arising out of your use
               of or inability to use the Service.
             </p>
             <p className="mt-3">
-              InkDesk&apos;s total liability to you for any claim arising from these Terms
-              shall not exceed the total fees paid by you to InkDesk in the three months
+              Inkquire&apos;s total liability to you for any claim arising from these Terms
+              shall not exceed the total fees paid by you to Inkquire in the three months
               preceding the event giving rise to the claim.
             </p>
           </section>
@@ -168,7 +168,7 @@ export default function TermsPage() {
               9. Termination
             </h2>
             <p>
-              InkDesk may suspend or terminate your account immediately if you breach
+              Inkquire may suspend or terminate your account immediately if you breach
               these Terms. You may close your account at any time from your account
               settings. On termination, your right to use the Service ceases immediately.
               We will retain your data for 30 days following closure to allow data

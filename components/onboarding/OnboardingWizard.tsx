@@ -81,7 +81,7 @@ function Wordmark() {
   return (
     <span className="inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight text-parchment-100">
       <span className="h-1.5 w-1.5 rounded-full bg-gold-500 shadow-gold" aria-hidden="true" />
-      InkDesk
+      Inkquire
     </span>
   )
 }
@@ -219,7 +219,7 @@ export function OnboardingWizard({ artist }: OnboardingWizardProps) {
               for your work.
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-ink-400">
-              A few minutes now and InkDesk builds your portfolio site, opens your
+              A few minutes now and Inkquire builds your portfolio site, opens your
               books, and gets you ready to take deposits — no design work required.
             </p>
 

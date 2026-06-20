@@ -13,6 +13,7 @@ export const RESERVED_USERNAMES = [
   'onboarding',
   'settings',
   'inkdesk',
+  'inkquire',
   'www',
 ] as const
 

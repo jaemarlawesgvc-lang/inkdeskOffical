@@ -54,7 +54,7 @@ export function Footer({ artistName, artistId, artistEmail }: FooterProps) {
             className="inline-flex items-center gap-1.5 text-white/40 hover:text-white text-sm transition-colors duration-150"
           >
             Powered by
-            <span className="font-bold text-white/70">InkDesk</span>
+            <span className="font-bold text-white/70">Inkquire</span>
           </Link>
         </div>
       </div>

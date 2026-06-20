@@ -51,7 +51,7 @@ export function HomeFeatures() {
                 A website that designs itself
               </h3>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-300">
-                Upload your work. InkDesk writes the copy, picks the palette, and lays out a
+                Upload your work. Inkquire writes the copy, picks the palette, and lays out a
                 gallery built for healed-photo detail — live in under a minute.
               </p>
 

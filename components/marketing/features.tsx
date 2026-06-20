@@ -90,7 +90,7 @@ const FEATURES: Feature[] = [
     Icon: CardIcon,
     title: 'Stripe payments built in',
     description:
-      'Connect your Stripe account and take deposits directly to your bank. InkDesk never holds your money and takes no cut of your earnings. Capture the deposit on confirmation or on the day — your call.',
+      'Connect your Stripe account and take deposits directly to your bank. Inkquire never holds your money and takes no cut of your earnings. Capture the deposit on confirmation or on the day — your call.',
   },
 ]
 

@@ -42,7 +42,7 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DEBOUNCE_MS = 1500
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
-// Default palette mirrors the InkDesk home page theme (ink-950 / ink-800 / gold-500).
+// Default palette mirrors the Inkquire home page theme (ink-950 / ink-800 / gold-500).
 // Artists can change these, but a fresh page ships with the signature look.
 const FALLBACK_COLORS = { primary: '#080808', secondary: '#1a1a1a', accent: '#ffb700' } as const
 

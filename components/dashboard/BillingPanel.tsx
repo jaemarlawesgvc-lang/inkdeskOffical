@@ -291,7 +291,7 @@ export function BillingPanel({
       )}
 
       <p className="text-center text-xs text-white/30">
-        Payments are processed securely by Stripe. InkDesk never takes a commission on your bookings.
+        Payments are processed securely by Stripe. Inkquire never takes a commission on your bookings.
       </p>
 
       <UpgradeModal

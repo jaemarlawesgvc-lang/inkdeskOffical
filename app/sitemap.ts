@@ -1,7 +1,7 @@
 /**
  * app/sitemap.ts
  *
- * Dynamic sitemap generation for InkDesk.
+ * Dynamic sitemap generation for Inkquire.
  *
  * Includes:
  *   - Static marketing pages

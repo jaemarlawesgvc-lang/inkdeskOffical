@@ -8,13 +8,13 @@ export const metadata: Metadata = {
     'Smart booking, AI portfolio sites, Stripe deposits, and automated email reminders — built for tattoo artists.',
   alternates: { canonical: '/features' },
   openGraph: {
-    title: 'Features — InkDesk',
+    title: 'Features — Inkquire',
     description:
       'Smart booking, AI portfolio sites, Stripe deposits, and automated email reminders — built for tattoo artists.',
     url: '/features',
   },
   twitter: {
-    title: 'Features — InkDesk',
+    title: 'Features — Inkquire',
     description:
       'Smart booking, AI portfolio sites, Stripe deposits, and automated email reminders — built for tattoo artists.',
   },
@@ -32,7 +32,7 @@ const SECTIONS: FeatureSection[] = [
     tag:      'Booking',
     headline: 'A booking system that works for you',
     body: [
-      'Clients visit your InkDesk page, pick an available slot, describe their idea, and upload reference photos — all without you lifting a finger.',
+      'Clients visit your Inkquire page, pick an available slot, describe their idea, and upload reference photos — all without you lifting a finger.',
       'Every request lands in your dashboard for review. You see the full picture before confirming: the idea, the references, the slot. Confirm it or decline it in one click.',
       'Require a deposit before a booking is locked. Stripe handles the money — it goes straight to your bank account.',
     ],
@@ -48,9 +48,9 @@ const SECTIONS: FeatureSection[] = [
     tag:      'AI Portfolio',
     headline: 'A portfolio site that represents your work honestly',
     body: [
-      'You upload your photos. You answer a few questions about your style and studio. InkDesk sends everything to Google Gemini, which generates a portfolio site tailored to your aesthetic — not a generic template.',
+      'You upload your photos. You answer a few questions about your style and studio. Inkquire sends everything to Google Gemini, which generates a portfolio site tailored to your aesthetic — not a generic template.',
       'The result is a clean, fast, mobile-first page at inkdesk.live/yourusername. Your booking calendar is embedded directly on the page.',
-      'If Gemini is unavailable, InkDesk falls back to a high-quality default layout so your page is never blank.',
+      'If Gemini is unavailable, Inkquire falls back to a high-quality default layout so your page is never blank.',
     ],
     highlights: [
       'AI-generated colour palette matched to your style',
@@ -64,8 +64,8 @@ const SECTIONS: FeatureSection[] = [
     tag:      'Payments',
     headline: 'Stripe payments, zero platform commission',
     body: [
-      'InkDesk uses Stripe Connect so deposits go directly from your client to your bank account. InkDesk never holds your money.',
-      'You choose the deposit amount per session. Stripe charges their standard card processing fee (approximately 1.5% + 20p for UK cards). InkDesk takes nothing extra.',
+      'Inkquire uses Stripe Connect so deposits go directly from your client to your bank account. Inkquire never holds your money.',
+      'You choose the deposit amount per session. Stripe charges their standard card processing fee (approximately 1.5% + 20p for UK cards). Inkquire takes nothing extra.',
       'Deposits are authorised at booking submission and captured on confirmation, so a client can never claim money back for a simple change of mind.',
     ],
     highlights: [
@@ -80,7 +80,7 @@ const SECTIONS: FeatureSection[] = [
     tag:      'Client Management',
     headline: 'Know your clients, not just their bookings',
     body: [
-      'Every client who books through InkDesk is automatically added to your client list. Name, email, phone, and their full booking history — all in one place.',
+      'Every client who books through Inkquire is automatically added to your client list. Name, email, phone, and their full booking history — all in one place.',
       'Add private notes to any client profile. Track their style preferences, allergies, previous work, or anything else you need to remember before their next session.',
     ],
     highlights: [
@@ -95,7 +95,7 @@ const SECTIONS: FeatureSection[] = [
     headline: 'Emails that run themselves',
     body: [
       'Booking confirmations go out the moment you confirm. 48-hour reminders go out automatically before each session. Aftercare instructions go out the day after.',
-      'Every email is sent from your InkDesk domain and uses plain, professional formatting. You choose when to enable or disable each automation from your dashboard.',
+      'Every email is sent from your Inkquire domain and uses plain, professional formatting. You choose when to enable or disable each automation from your dashboard.',
     ],
     highlights: [
       'Booking confirmation to client and artist',
@@ -120,7 +120,7 @@ export default function FeaturesPage() {
             </span>
           </h1>
           <p className="text-lg text-ink-400 mb-10 max-w-xl mx-auto">
-            Every feature in InkDesk exists because a real artist needed it.
+            Every feature in Inkquire exists because a real artist needed it.
             Nothing is there to impress a VC.
           </p>
           <Link

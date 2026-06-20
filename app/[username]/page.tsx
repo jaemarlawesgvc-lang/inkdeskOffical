@@ -64,7 +64,7 @@ interface ArtistRecord {
   profiles: { email: string } | null
 }
 
-const DEFAULT_ACCENT = '#ffb700' // gold-500 — InkDesk home theme
+const DEFAULT_ACCENT = '#ffb700' // gold-500 — Inkquire home theme
 
 // ---------------------------------------------------------------------------
 // Data loader (shared by page + generateMetadata)
@@ -114,7 +114,7 @@ export async function generateMetadata({
 
   if (!artist || !artist.onboarding_complete) {
     return {
-      title: 'Artist not found — InkDesk',
+      title: 'Artist not found — Inkquire',
       robots: { index: false, follow: false },
     }
   }

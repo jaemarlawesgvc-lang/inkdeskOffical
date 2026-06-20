@@ -9,7 +9,7 @@ export function AdminTopBar({ displayName }: AdminTopBarProps) {
     <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 sm:px-6 bg-black/80 backdrop-blur-md border-b border-white/10">
       {/* Mobile logo */}
       <div className="lg:hidden flex items-center gap-2">
-        <span className="text-white font-bold text-base tracking-tight">InkDesk</span>
+        <span className="text-white font-bold text-base tracking-tight">Inkquire</span>
         <span className="px-2 py-0.5 bg-crimson-500/20 text-crimson-400 text-xs font-semibold rounded-full">
           Admin
         </span>

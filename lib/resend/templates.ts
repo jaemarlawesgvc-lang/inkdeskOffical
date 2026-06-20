@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Shared layout wrapper — dark theme, responsive, InkDesk branding
+// Shared layout wrapper — dark theme, responsive, Inkquire branding
 // ---------------------------------------------------------------------------
 
 function layout(content: string, artistEmail?: string): string {
@@ -8,7 +8,7 @@ function layout(content: string, artistEmail?: string): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>InkDesk</title>
+<title>Inkquire</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e5e5e5;">
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#0a0a0a;">
@@ -16,7 +16,7 @@ function layout(content: string, artistEmail?: string): string {
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background-color:#171717;border-radius:12px;overflow:hidden;">
 <!-- Header -->
 <tr><td style="padding:24px 32px;border-bottom:1px solid #262626;">
-<span style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">InkDesk</span>
+<span style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">Inkquire</span>
 </td></tr>
 <!-- Content -->
 <tr><td style="padding:32px;">
@@ -25,8 +25,8 @@ ${content}
 <!-- Footer -->
 <tr><td style="padding:24px 32px;border-top:1px solid #262626;text-align:center;">
 <p style="margin:0;font-size:12px;color:#737373;line-height:1.5;">
-&copy; ${new Date().getFullYear()} InkDesk. All rights reserved.<br />
-You received this email because of a booking on InkDesk.
+&copy; ${new Date().getFullYear()} Inkquire. All rights reserved.<br />
+You received this email because of a booking on Inkquire.
 </p>
 ${artistEmail ? `<p style="margin:8px 0 0;font-size:12px;color:#525252;line-height:1.5;">Having a problem? <a href="mailto:${artistEmail}" style="color:#a3a3a3;text-decoration:underline;">Contact your artist</a></p>` : ''}
 </td></tr>

@@ -21,7 +21,7 @@ export default function AuthLayout({
           href="/"
           className="mb-10 font-display text-2xl font-bold text-parchment-100 hover:opacity-80 transition-opacity lg:hidden"
         >
-          Ink<span className="text-gold-500">Desk</span>
+          Ink<span className="text-gold-500">quire</span>
         </Link>
 
         {/* Page content */}

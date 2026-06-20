@@ -3,7 +3,7 @@ const STEPS = [
     number: '01',
     title: 'Sign up',
     description:
-      'Create your free InkDesk account in under two minutes. No credit card, no commitment required.',
+      'Create your free Inkquire account in under two minutes. No credit card, no commitment required.',
   },
   {
     number: '02',
@@ -15,7 +15,7 @@ const STEPS = [
     number: '03',
     title: 'Go live',
     description:
-      'InkDesk AI generates your portfolio website instantly. Share your booking link and start filling your calendar.',
+      'Inkquire AI generates your portfolio website instantly. Share your booking link and start filling your calendar.',
   },
 ] as const
 

@@ -6,12 +6,12 @@ import { HomeProcess }  from '@/components/marketing/home/HomeProcess'
 import { HomeCTA }      from '@/components/marketing/home/HomeCTA'
 
 export const metadata: Metadata = {
-  title: 'InkDesk — Your tattoo portfolio, booking site & deposits in one',
+  title: 'Inkquire — Your tattoo portfolio, booking site & deposits in one',
   description:
-    'InkDesk turns your tattoo photos into a premium booking website in seconds. Online bookings, Stripe deposits and automated follow-ups — with no commission on your earnings. Start free.',
+    'Inkquire turns your tattoo photos into a premium booking website in seconds. Online bookings, Stripe deposits and automated follow-ups — with no commission on your earnings. Start free.',
   alternates: { canonical: '/' },
   openGraph: {
-    title: 'InkDesk — Your tattoo portfolio, booking site & deposits in one',
+    title: 'Inkquire — Your tattoo portfolio, booking site & deposits in one',
     description:
       'Turn your tattoo feed into a website that books clients and collects deposits. AI-generated, premium, and commission-free. Start free with a 30-day Pro trial.',
     url: '/',
