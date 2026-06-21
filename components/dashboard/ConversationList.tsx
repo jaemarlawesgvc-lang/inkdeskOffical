@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface Conversation {
   id: string
@@ -27,30 +28,44 @@ export function ConversationList({ selectedId, onSelect }: Props) {
 
   useEffect(() => {
     fetch('/api/dashboard/conversations')
-      .then((r) => r.json())
-      .then((d) => setConversations(d.conversations ?? []))
+      .then(async (r) => {
+        const d = await r.json().catch(() => null)
+        if (!r.ok) {
+          toast.error(d?.error ?? 'Failed to load conversations.')
+          return
+        }
+        setConversations(d?.conversations ?? [])
+      })
+      .catch(() => toast.error('Network error — could not load conversations.'))
       .finally(() => setLoading(false))
   }, [])
 
   const handleCreate = async () => {
     if (!newName.trim() || !newEmail.trim()) return
     setCreating(true)
-    const res = await fetch('/api/dashboard/conversations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientName: newName.trim(), clientEmail: newEmail.trim() }),
-    })
-    const data = await res.json()
-    if (data.conversation) {
-      onSelect(data.conversation.id)
-      setShowNew(false)
-      setNewName('')
-      setNewEmail('')
-      const refreshRes = await fetch('/api/dashboard/conversations')
-      const refreshData = await refreshRes.json()
-      setConversations(refreshData.conversations ?? [])
+    try {
+      const res = await fetch('/api/dashboard/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientName: newName.trim(), clientEmail: newEmail.trim() }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.conversation) {
+        onSelect(data.conversation.id)
+        setShowNew(false)
+        setNewName('')
+        setNewEmail('')
+        const refreshRes = await fetch('/api/dashboard/conversations')
+        const refreshData = await refreshRes.json()
+        setConversations(refreshData.conversations ?? [])
+      } else {
+        toast.error(data?.error ?? 'Failed to start conversation. Please try again.')
+      }
+    } catch {
+      toast.error('Network error — could not start conversation.')
+    } finally {
+      setCreating(false)
     }
-    setCreating(false)
   }
 
   if (loading) {

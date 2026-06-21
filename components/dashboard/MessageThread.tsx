@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 
 interface Message {
   id: string
@@ -20,12 +21,32 @@ export function MessageThread({ conversationId }: Props) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  // Polls every 5s — only toast once per failure streak, not on every cycle.
+  const hasShownLoadErrorRef = useRef(false)
 
   const loadMessages = useCallback(async () => {
-    const res = await fetch(`/api/dashboard/messages?conversation_id=${conversationId}`)
-    const data = await res.json()
-    setMessages(data.messages ?? [])
-    setLoading(false)
+    try {
+      const res = await fetch(`/api/dashboard/messages?conversation_id=${conversationId}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        if (!hasShownLoadErrorRef.current) {
+          toast.error(data?.error ?? 'Failed to load messages.')
+          hasShownLoadErrorRef.current = true
+        }
+        setLoading(false)
+        return
+      }
+      const data = await res.json()
+      setMessages(data.messages ?? [])
+      hasShownLoadErrorRef.current = false
+    } catch {
+      if (!hasShownLoadErrorRef.current) {
+        toast.error('Network error — could not load messages.')
+        hasShownLoadErrorRef.current = true
+      }
+    } finally {
+      setLoading(false)
+    }
   }, [conversationId])
 
   useEffect(() => {
@@ -43,16 +64,24 @@ export function MessageThread({ conversationId }: Props) {
   const handleSend = async () => {
     if (!draft.trim() || sending) return
     setSending(true)
-    const res = await fetch('/api/dashboard/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, body: draft.trim() }),
-    })
-    if (res.ok) {
-      setDraft('')
-      await loadMessages()
+    try {
+      const res = await fetch('/api/dashboard/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, body: draft.trim() }),
+      })
+      if (res.ok) {
+        setDraft('')
+        await loadMessages()
+      } else {
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error ?? 'Message failed to send. Please try again.')
+      }
+    } catch {
+      toast.error('Network error — message not sent. Please try again.')
+    } finally {
+      setSending(false)
     }
-    setSending(false)
   }
 
   if (loading) {

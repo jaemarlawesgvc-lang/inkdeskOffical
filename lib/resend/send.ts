@@ -9,6 +9,8 @@ import {
   depositReceiptTemplate,
   reviewRequestTemplate,
   cancellationOpeningTemplate,
+  newMessageNotificationTemplate,
+  conversationInviteTemplate,
   type BookingEmailData,
 } from '@/lib/resend/templates'
 import { getAppUrl } from '@/lib/app-url'
@@ -281,6 +283,79 @@ export async function sendCancellationOpening(
     html,
     emailType: 'cancellation_opening',
     bookingId: params.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 8. New Message Notification — to artist (client messaged) or client (artist replied)
+//
+// bookingId is intentionally always null here, even when the conversation has
+// a linked booking. sendEmail() skips sending if it finds a prior 'sent' row
+// for the same (bookingId, emailType) pair — that dedup exists so one-off
+// per-booking emails (confirmation, receipt, etc.) don't double-send on
+// retries. Messages are not one-off: every message must notify, so this must
+// never take the dedup path.
+// ---------------------------------------------------------------------------
+
+export async function sendNewMessageNotification(
+  supabase: SupabaseClient,
+  params: {
+    to: string
+    recipientName: string
+    senderName: string
+    messagePreview: string
+    conversationUrl: string
+    artistEmail: string | null
+  },
+): Promise<SendResult> {
+  const { subject, html } = newMessageNotificationTemplate({
+    recipientName: params.recipientName,
+    senderName: params.senderName,
+    messagePreview: params.messagePreview.slice(0, 300),
+    conversationUrl: params.conversationUrl,
+    artistEmail: params.artistEmail,
+  })
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    html,
+    emailType: 'new_message_notification',
+    bookingId: null,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 9. Conversation Invite — to client (sent once, when an artist starts a new conversation)
+// ---------------------------------------------------------------------------
+
+export async function sendConversationInvite(
+  supabase: SupabaseClient,
+  params: {
+    to: string
+    clientName: string
+    artistName: string
+    conversationUrl: string
+    artistEmail: string | null
+  },
+): Promise<SendResult> {
+  const { subject, html } = conversationInviteTemplate({
+    clientName: params.clientName,
+    artistName: params.artistName,
+    conversationUrl: params.conversationUrl,
+    artistEmail: params.artistEmail,
+  })
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    html,
+    emailType: 'new_message_notification',
+    bookingId: null,
     userId: null,
     supabase,
   })

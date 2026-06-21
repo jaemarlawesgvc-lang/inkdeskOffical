@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
+import { sendNewMessageNotification } from '@/lib/resend/send'
+import { getAppUrl } from '@/lib/app-url'
 import { z } from 'zod'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -74,7 +76,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { data: conv } = await supabase
     .from('conversations')
-    .select('id')
+    .select(`
+      id,
+      client_name,
+      artists (
+        display_name,
+        username,
+        profiles ( email )
+      )
+    `)
     .eq('client_token', parsed.data.token)
     .single()
 
@@ -100,6 +110,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .from('conversations')
     .update({ last_message_at: new Date().toISOString() })
     .eq('id', conv.id)
+
+  const artist = conv.artists as unknown as {
+    display_name: string | null
+    username: string
+    profiles: { email: string } | null
+  } | null
+
+  if (artist?.profiles?.email) {
+    await sendNewMessageNotification(supabase, {
+      to: artist.profiles.email,
+      recipientName: artist.display_name ?? artist.username,
+      senderName: conv.client_name,
+      messagePreview: parsed.data.body,
+      conversationUrl: `${getAppUrl()}/dashboard/messages`,
+      artistEmail: artist.profiles.email,
+    }).catch((err) => {
+      console.error('[conversations/client] artist notify email failed:', err instanceof Error ? err.message : err)
+    })
+  }
 
   return NextResponse.json({ message: msg })
 }

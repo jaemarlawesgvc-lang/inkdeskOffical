@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { sendConversationInvite } from '@/lib/resend/send'
+import { getAppUrl } from '@/lib/app-url'
 import { z } from 'zod'
 
 export async function GET(): Promise<NextResponse> {
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { data: artist } = await supabase
     .from('artists')
-    .select('id')
+    .select('id, display_name, username')
     .eq('user_id', user.id)
     .single()
 
@@ -129,6 +131,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (convError) {
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
+
+  // Without this email the client has no way to discover their conversation
+  // link — the dashboard never surfaces client_token anywhere in the UI.
+  // Failure here must not fail conversation creation; the artist can still
+  // resend by recreating contact through other channels.
+  await sendConversationInvite(supabase, {
+    to: clientEmail.toLowerCase(),
+    clientName,
+    artistName: artist.display_name ?? artist.username,
+    conversationUrl: `${getAppUrl()}/conversation?token=${conv.client_token}`,
+    artistEmail: user.email ?? null,
+  }).catch((err) => {
+    console.error('[dashboard/conversations] invite email failed:', err instanceof Error ? err.message : err)
+  })
 
   return NextResponse.json({ conversation: conv })
 }

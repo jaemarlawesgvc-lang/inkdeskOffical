@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface Message {
   id: string
@@ -50,16 +51,24 @@ export function ClientChatView() {
   const handleSend = async () => {
     if (!draft.trim() || sending || !token) return
     setSending(true)
-    const res = await fetch('/api/conversations/client', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, body: draft.trim() }),
-    })
-    if (res.ok) {
-      setDraft('')
-      await loadMessages()
+    try {
+      const res = await fetch('/api/conversations/client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, body: draft.trim() }),
+      })
+      if (res.ok) {
+        setDraft('')
+        await loadMessages()
+      } else {
+        const data = await res.json().catch(() => null)
+        toast.error(data?.error ?? 'Message failed to send. Please try again.')
+      }
+    } catch {
+      toast.error('Network error — message not sent. Please try again.')
+    } finally {
+      setSending(false)
     }
-    setSending(false)
   }
 
   if (!token) {

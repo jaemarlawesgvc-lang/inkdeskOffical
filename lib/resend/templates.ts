@@ -455,7 +455,71 @@ ${data.aftercareGuideUrl ? `<a href="${data.aftercareGuideUrl}" style="display:i
 }
 
 // ---------------------------------------------------------------------------
-// 9. Consent Form Submitted — to artist
+// 9. New Message — to artist (client messaged) or client (artist replied)
+// ---------------------------------------------------------------------------
+
+export interface NewMessageNotificationData {
+  recipientName: string
+  senderName: string
+  messagePreview: string
+  conversationUrl: string
+  artistEmail: string | null
+}
+
+export function newMessageNotificationTemplate(data: NewMessageNotificationData): {
+  subject: string
+  html: string
+} {
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">New message from ${esc(data.senderName)}</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.recipientName)}, you have a new message on Inkquire.
+</p>
+<div style="margin-bottom:24px;padding:16px;background-color:#262626;border-radius:8px;border-left:3px solid #404040;">
+  <p style="margin:0;font-size:14px;color:#e5e5e5;line-height:1.5;white-space:pre-wrap;">${esc(data.messagePreview)}</p>
+</div>
+<a href="${data.conversationUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Reply</a>`
+
+  return {
+    subject: `New message from ${data.senderName}`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 9b. Conversation Invite — to client (artist started a new conversation)
+// ---------------------------------------------------------------------------
+
+export interface ConversationInviteData {
+  clientName: string
+  artistName: string
+  conversationUrl: string
+  artistEmail: string | null
+}
+
+export function conversationInviteTemplate(data: ConversationInviteData): {
+  subject: string
+  html: string
+} {
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">You have a new conversation</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, <strong style="color:#ffffff;">${esc(data.artistName)}</strong> started a conversation with you on Inkquire.
+  Use the link below to view and reply to messages.
+</p>
+<a href="${data.conversationUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Open conversation</a>
+<p style="margin:24px 0 0;font-size:12px;color:#525252;line-height:1.5;">
+  Save this link — you&rsquo;ll need it to view and reply to this conversation later.
+</p>`
+
+  return {
+    subject: `${data.artistName} started a conversation with you`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 10. Consent Form Submitted — to artist
 // ---------------------------------------------------------------------------
 
 export interface ConsentFormSubmittedData {
