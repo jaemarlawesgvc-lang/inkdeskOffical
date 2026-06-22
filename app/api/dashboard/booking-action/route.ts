@@ -124,16 +124,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const adminClient = createSupabaseAdminClient()
     const { data: artistDetails } = await adminClient
       .from('artists')
-      .select('display_name, username')
+      .select('display_name, username, profiles ( email )')
       .eq('id', artistId)
       .single()
 
     if (artistDetails) {
+      const artistProfile = artistDetails.profiles as unknown as { email: string } | null
       void notifyCancellationOpening(adminClient, {
         artistId,
         artistName: artistDetails.display_name ?? artistDetails.username,
         artistUsername: artistDetails.username,
         cancelledDate: bookingBeforeUpdate.booking_date,
+        artistEmail: artistProfile?.email ?? null,
       })
     }
   }

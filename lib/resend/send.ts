@@ -217,6 +217,7 @@ export async function sendDepositReceipt(
     depositAmount: booking.depositAmount,
     paymentDate: new Date().toISOString(),
     cardLast4,
+    artistEmail: booking.artistEmail,
   })
 
   return sendEmail({
@@ -236,12 +237,20 @@ export async function sendDepositReceipt(
 
 export async function sendReviewRequest(
   supabase: SupabaseClient,
-  params: { bookingId: string; clientName: string; clientEmail: string; artistName: string; reviewToken: string },
+  params: {
+    bookingId: string
+    clientName: string
+    clientEmail: string
+    artistName: string
+    reviewToken: string
+    artistEmail: string | null
+  },
 ): Promise<SendResult> {
   const { subject, html } = reviewRequestTemplate({
     clientName: params.clientName,
     artistName: params.artistName,
     reviewUrl: `${getAppUrl()}/review?token=${params.reviewToken}`,
+    artistEmail: params.artistEmail,
   })
 
   return sendEmail({
@@ -268,6 +277,7 @@ export async function sendCancellationOpening(
     artistName: string
     artistUsername: string
     openingDate: string
+    artistEmail: string | null
   },
 ): Promise<SendResult> {
   const { subject, html } = cancellationOpeningTemplate({
@@ -275,6 +285,7 @@ export async function sendCancellationOpening(
     artistName: params.artistName,
     openingDate: params.openingDate,
     bookingUrl: `${getAppUrl()}/${params.artistUsername}?date=${params.openingDate}`,
+    artistEmail: params.artistEmail,
   })
 
   return sendEmail({

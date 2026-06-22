@@ -78,7 +78,9 @@ export function Step4Pricing({ defaultValues, onNext, onBack, isSaving }: Step4P
       // deposit_required=true in the DB, which previously blocked this step
       // (toggle on + empty amount = invalid form). Now it starts off.
       depositRequired:
-        defaultValues.depositAmount != null && (defaultValues.depositRequired ?? false),
+        defaultValues.depositAmount !== null &&
+        defaultValues.depositAmount !== undefined &&
+        (defaultValues.depositRequired ?? false),
       timezone: defaultValues.timezone ?? detectTimezone(),
       availability: defaultValues.availability ?? [],
     },

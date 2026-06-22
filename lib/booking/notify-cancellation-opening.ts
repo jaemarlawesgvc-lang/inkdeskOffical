@@ -17,10 +17,16 @@ const MAX_NOTIFICATIONS = 5
  */
 export async function notifyCancellationOpening(
   supabase: SupabaseClient,
-  params: { artistId: string; artistName: string; artistUsername: string; cancelledDate: string },
+  params: {
+    artistId: string
+    artistName: string
+    artistUsername: string
+    cancelledDate: string
+    artistEmail: string | null
+  },
 ): Promise<void> {
   try {
-    const { artistId, artistName, artistUsername, cancelledDate } = params
+    const { artistId, artistName, artistUsername, cancelledDate, artistEmail } = params
 
     const { data: waitlistEntries } = await supabase
       .from('waitlist')
@@ -37,6 +43,7 @@ export async function notifyCancellationOpening(
         artistName,
         artistUsername,
         openingDate: cancelledDate,
+        artistEmail,
       })
       if (result.success) {
         await supabase

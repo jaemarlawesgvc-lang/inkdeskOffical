@@ -90,7 +90,7 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
   }
 
   // Extract FAQs from siteData for separate database storage
-  const { faqs: generatedFaqs, ...cleanSiteData } = siteData as any
+  const { faqs: generatedFaqs, ...cleanSiteData } = siteData
 
   // Persist with the service-role client (ownership verified above via the
   // user_id lookup) so completing onboarding doesn't depend on the artists
@@ -121,7 +121,7 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
       await db.from('artist_faqs').delete().eq('artist_id', artist.id)
       if (generatedFaqs.length > 0) {
         const { error: faqError } = await db.from('artist_faqs').insert(
-          generatedFaqs.map((f: any, i: number) => ({
+          generatedFaqs.map((f, i) => ({
             artist_id: artist.id,
             question: f.question,
             answer: f.answer,
@@ -132,8 +132,11 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
           console.error('[onboarding/generate-site] Failed to save generated FAQs:', faqError.message)
         }
       }
-    } catch (err: any) {
-      console.warn('[onboarding/generate-site] Gracefully caught FAQ sync error (table may not exist yet):', err.message || err)
+    } catch (err) {
+      console.warn(
+        '[onboarding/generate-site] Gracefully caught FAQ sync error (table may not exist yet):',
+        err instanceof Error ? err.message : err,
+      )
     }
   }
 

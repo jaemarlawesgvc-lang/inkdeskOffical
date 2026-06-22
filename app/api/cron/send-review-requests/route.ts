@@ -34,7 +34,8 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       client_email,
       artists (
         display_name,
-        username
+        username,
+        profiles ( email )
       )
     `,
     )
@@ -58,7 +59,11 @@ async function handler(request: NextRequest): Promise<NextResponse> {
   for (const booking of bookings ?? []) {
     results.processed++
 
-    const artist = booking.artists as unknown as { display_name: string | null; username: string } | null
+    const artist = booking.artists as unknown as {
+      display_name: string | null
+      username: string
+      profiles: { email: string } | null
+    } | null
     if (!artist) {
       results.failed++
       results.errors.push(`Booking ${booking.id} has no artist`)
@@ -103,6 +108,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       clientEmail: booking.client_email,
       artistName: artist.display_name ?? 'Your artist',
       reviewToken: token,
+      artistEmail: artist.profiles?.email ?? null,
     })
 
     if (result.skipped) {

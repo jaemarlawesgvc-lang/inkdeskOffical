@@ -127,7 +127,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const siteData = await callGemini(prompt)
 
     // Extract FAQs from siteData for separate database storage
-    const { faqs: generatedFaqs, ...cleanSiteData } = siteData as any
+    const { faqs: generatedFaqs, ...cleanSiteData } = siteData
 
     // Preserve the artist's manually-chosen colour palette across regenerations.
     // If they've set their own colours, keep them instead of the AI's choice.
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         await supabase.from('artist_faqs').delete().eq('artist_id', artist.id)
         if (generatedFaqs.length > 0) {
           const { error: faqError } = await supabase.from('artist_faqs').insert(
-            generatedFaqs.map((f: any, i: number) => ({
+            generatedFaqs.map((f, i) => ({
               artist_id: artist.id,
               question: f.question,
               answer: f.answer,
@@ -172,8 +172,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             console.error('[generate-site] Failed to save generated FAQs:', faqError.message)
           }
         }
-      } catch (err: any) {
-        console.warn('[generate-site] Gracefully caught FAQ sync error (table may not exist yet):', err.message || err)
+      } catch (err) {
+        console.warn(
+          '[generate-site] Gracefully caught FAQ sync error (table may not exist yet):',
+          err instanceof Error ? err.message : err,
+        )
       }
     }
 

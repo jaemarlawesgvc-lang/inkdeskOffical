@@ -28,13 +28,13 @@ export async function POST(request: Request) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
     // Verify current password by attempting to sign in
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user.email!,
+      email: user.email,
       password: currentPassword,
     })
 

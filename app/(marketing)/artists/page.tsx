@@ -169,7 +169,7 @@ export default function ArtistsPage() {
               </svg>
               <h3 className="text-base font-semibold text-white mb-2">No Artists Found</h3>
               <p className="text-xs text-ink-500 mb-6">
-                We couldn't find any artists matching "{searchQuery || selectedStyle}". Try broadening your search terms or filters.
+                We couldn&apos;t find any artists matching &quot;{searchQuery || selectedStyle}&quot;. Try broadening your search terms or filters.
               </p>
               <button
                 type="button"

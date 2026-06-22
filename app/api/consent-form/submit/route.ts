@@ -6,14 +6,23 @@ import { ConsentFormFilledDocument } from '@/lib/pdf/ConsentFormFilledDocument'
 import { sendEmail } from '@/lib/resend/client'
 import { consentFormSubmittedTemplate } from '@/lib/resend/templates'
 import { getAppUrl } from '@/lib/app-url'
-import { MEDICAL_QUESTIONS } from '@/lib/consent/questions'
+import { MEDICAL_QUESTIONS, type MedicalQuestionId } from '@/lib/consent/questions'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
 
-const medicalAnswersSchema = z.object(
-  Object.fromEntries(MEDICAL_QUESTIONS.map((q) => [q.id, z.enum(['yes', 'no'])])),
+// Object.fromEntries() always types as { [k: string]: V }, even when the
+// input tuples are literal-typed — it can't narrow to the exact question
+// ids. Building the shape via reduce() with an explicit Record accumulator
+// keeps the precise keys, so the inferred schema type matches MedicalAnswers.
+const medicalAnswersShape = MEDICAL_QUESTIONS.reduce(
+  (acc, q) => {
+    acc[q.id] = z.enum(['yes', 'no'])
+    return acc
+  },
+  {} as Record<MedicalQuestionId, z.ZodEnum<['yes', 'no']>>,
 )
+const medicalAnswersSchema = z.object(medicalAnswersShape)
 
 const submitSchema = z.object({
   artistId: z.string().uuid(),

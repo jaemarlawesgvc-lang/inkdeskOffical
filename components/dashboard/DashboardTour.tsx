@@ -139,7 +139,7 @@ export function DashboardTour() {
   const resolveFrom = useCallback((from: number, dir: 1 | -1): number => {
     let i = from
     while (i >= 0 && i < STEPS.length) {
-      if (firstVisible(STEPS[i]!.selectors)) return i
+      if (firstVisible(STEPS[i]?.selectors ?? [])) return i
       i += dir
     }
     return -1
@@ -154,7 +154,7 @@ export function DashboardTour() {
 
   useLayoutEffect(() => {
     if (phase !== 'tour') return
-    const el = firstVisible(STEPS[stepIndex]!.selectors)
+    const el = firstVisible(STEPS[stepIndex]?.selectors ?? [])
     targetRef.current = el
     if (!el) {
       const next = resolveFrom(stepIndex + 1, 1)
@@ -260,7 +260,8 @@ export function DashboardTour() {
   }
 
   // ── Spotlight tour ─────────────────────────────────────────────────────────
-  if (!rect) {
+  const currentStep = STEPS[stepIndex]
+  if (!rect || !currentStep) {
     return createPortal(<div className="fixed inset-0 z-[90] bg-ink-950/60" />, document.body)
   }
 
@@ -325,13 +326,13 @@ export function DashboardTour() {
       >
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-display text-base font-bold text-parchment-100">
-            {STEPS[stepIndex]!.title}
+            {currentStep.title}
           </h3>
           <span className="mt-0.5 flex-shrink-0 text-[0.7rem] font-semibold uppercase tracking-wider text-gold-500">
             {visiblePos} / {visibleTotal}
           </span>
         </div>
-        <p className="mt-1.5 text-sm leading-relaxed text-ink-400">{STEPS[stepIndex]!.body}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-400">{currentStep.body}</p>
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <button

@@ -138,7 +138,7 @@ ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padd
 
   return {
     subject: `Your booking with ${data.artistName} is confirmed`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -187,7 +187,7 @@ ${descriptionLine}
 
   return {
     subject: `New booking from ${data.clientName}`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -232,7 +232,7 @@ ${locationLine}
 
   return {
     subject: `Your tattoo appointment is tomorrow — ${data.artistName}`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -269,7 +269,7 @@ ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;marg
 
   return {
     subject: `Your appointment with ${data.artistName} is in one week`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -285,6 +285,7 @@ export interface DepositReceiptData {
   depositAmount: number
   paymentDate: string
   cardLast4: string | null
+  artistEmail: string | null
 }
 
 export function depositReceiptTemplate(data: DepositReceiptData): {
@@ -326,7 +327,7 @@ ${cardLine}
 
   return {
     subject: `Deposit receipt — ${data.artistName}`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -338,6 +339,7 @@ export interface ReviewRequestData {
   clientName: string
   artistName: string
   reviewUrl: string
+  artistEmail: string | null
 }
 
 export function reviewRequestTemplate(data: ReviewRequestData): {
@@ -357,7 +359,7 @@ export function reviewRequestTemplate(data: ReviewRequestData): {
 
   return {
     subject: `How was your session with ${data.artistName}?`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -370,6 +372,7 @@ export interface CancellationOpeningData {
   artistName: string
   openingDate: string
   bookingUrl: string
+  artistEmail: string | null
 }
 
 export function cancellationOpeningTemplate(data: CancellationOpeningData): {
@@ -388,7 +391,7 @@ export function cancellationOpeningTemplate(data: CancellationOpeningData): {
 
   return {
     subject: `An opening with ${data.artistName} on ${dateDisplay}`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 
@@ -450,7 +453,7 @@ ${data.aftercareGuideUrl ? `<a href="${data.aftercareGuideUrl}" style="display:i
 
   return {
     subject: `Aftercare instructions from ${data.artistName}`,
-    html: layout(content, (data as any).artistEmail ?? undefined),
+    html: layout(content, data.artistEmail ?? undefined),
   }
 }
 

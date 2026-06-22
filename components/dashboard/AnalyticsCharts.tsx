@@ -19,8 +19,10 @@ interface AnalyticsData {
 
 function formatMonth(m: string) {
   const [y, mo] = m.split('-')
+  if (!y || !mo) return m
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[parseInt(mo!, 10) - 1]} ${y!.slice(2)}`
+  const monthName = months[parseInt(mo, 10) - 1] ?? mo
+  return `${monthName} ${y.slice(2)}`
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -102,7 +104,7 @@ export function AnalyticsCharts() {
           label="No-Show Rate"
           value={
             data.noShowChart.length > 0
-              ? `${data.noShowChart[data.noShowChart.length - 1]!.rate}%`
+              ? `${data.noShowChart.at(-1)?.rate ?? 0}%`
               : '0%'
           }
         />

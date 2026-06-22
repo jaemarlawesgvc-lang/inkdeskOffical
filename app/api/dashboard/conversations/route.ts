@@ -5,6 +5,14 @@ import { sendConversationInvite } from '@/lib/resend/send'
 import { getAppUrl } from '@/lib/app-url'
 import { z } from 'zod'
 
+interface ConversationMessageRow {
+  id: string
+  body: string
+  sender_type: string
+  read_at: string | null
+  created_at: string
+}
+
 export async function GET(): Promise<NextResponse> {
   const supabase = await createSupabaseServerClient()
 
@@ -47,7 +55,7 @@ export async function GET(): Promise<NextResponse> {
     .limit(50)
 
   const result = (conversations ?? []).map((c) => {
-    const msgs = (c.messages as any[]) ?? []
+    const msgs = (c.messages as unknown as ConversationMessageRow[]) ?? []
     const lastMsg = msgs.sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
     const unreadCount = msgs.filter((m) => m.sender_type === 'client' && !m.read_at).length
     return {

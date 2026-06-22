@@ -51,6 +51,10 @@ const FALLBACK_COLORS = { primary: '#000000', secondary: '#111827', accent: '#F9
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
+function resolveHexColor(value: string | undefined, fallback: string): string {
+  return value && HEX_RE.test(value) ? value : fallback
+}
+
 export function PagePreviewClient({
   artistId,
   siteData: initialSiteData,
@@ -197,9 +201,9 @@ export function PagePreviewClient({
     // Per-field validation: keep each valid hex, fall back individually so one
     // mistyped value doesn't reset the whole palette.
     const colorScheme = {
-      primary: HEX_RE.test(draft.colorScheme?.primary ?? '') ? draft.colorScheme!.primary! : FALLBACK_COLORS.primary,
-      secondary: HEX_RE.test(draft.colorScheme?.secondary ?? '') ? draft.colorScheme!.secondary! : FALLBACK_COLORS.secondary,
-      accent: HEX_RE.test(draft.colorScheme?.accent ?? '') ? draft.colorScheme!.accent! : FALLBACK_COLORS.accent,
+      primary: resolveHexColor(draft.colorScheme?.primary, FALLBACK_COLORS.primary),
+      secondary: resolveHexColor(draft.colorScheme?.secondary, FALLBACK_COLORS.secondary),
+      accent: resolveHexColor(draft.colorScheme?.accent, FALLBACK_COLORS.accent),
     }
 
     const payloadSiteData = {

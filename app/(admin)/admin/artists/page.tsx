@@ -5,6 +5,28 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Artists' }
 
+interface AdminArtistSubscription {
+  plan: string
+  status: string
+}
+
+interface AdminArtistProfile {
+  email: string
+  subscriptions: AdminArtistSubscription | AdminArtistSubscription[] | null
+}
+
+interface AdminArtistRow {
+  id: string
+  user_id: string
+  username: string
+  display_name: string | null
+  is_verified: boolean | null
+  onboarding_complete: boolean | null
+  onboarding_step: number | null
+  created_at: string
+  profiles: AdminArtistProfile | AdminArtistProfile[] | null
+}
+
 export default async function AdminArtistsPage() {
   const supabase = createSupabaseServerClient()
 
@@ -38,7 +60,7 @@ export default async function AdminArtistsPage() {
     .order('created_at', { ascending: false })
     .limit(500)
 
-  const mappedArtists = (artists ?? []).map((a: any) => {
+  const mappedArtists = (artists ?? []).map((a: AdminArtistRow) => {
     const profile = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles
     const sub = profile
       ? (Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions)

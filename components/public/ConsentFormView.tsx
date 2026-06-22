@@ -52,13 +52,19 @@ export function ConsentFormView() {
   }, [artistId])
 
   const answeredCount = Object.keys(medicalAnswers).length
-  const sectionsComplete = [
-    clientName.trim().length >= 2 && !!clientDob,
-    tattooDescription.trim().length >= 5,
-    ageConfirmed,
-    answeredCount === MEDICAL_QUESTIONS.length,
-    consentAgreed && signatureName.trim().length >= 2,
-  ]
+  // Explicit tuple type so indexed access (sectionsComplete[0], etc.) stays
+  // `boolean`, not `boolean | undefined` — this file builds with
+  // noUncheckedIndexedAccess, which widens plain boolean[] indexing.
+  const sectionsComplete: [boolean, boolean, boolean, boolean, boolean] = useMemo(
+    () => [
+      clientName.trim().length >= 2 && !!clientDob,
+      tattooDescription.trim().length >= 5,
+      ageConfirmed,
+      answeredCount === MEDICAL_QUESTIONS.length,
+      consentAgreed && signatureName.trim().length >= 2,
+    ],
+    [clientName, clientDob, tattooDescription, ageConfirmed, answeredCount, consentAgreed, signatureName],
+  )
   const progress = useMemo(
     () => Math.round((sectionsComplete.filter(Boolean).length / sectionsComplete.length) * 100),
     [sectionsComplete],

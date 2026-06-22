@@ -4,6 +4,23 @@ import { createSupabaseAdminClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+interface ArtistSearchRow {
+  id: string
+  username: string
+  display_name: string | null
+  is_verified: boolean
+  price_tier: string
+  bio: string | null
+  style_tags: string[] | null
+  studio_name: string | null
+  studio_address: string | null
+  deposit_required: boolean
+  deposit_amount: number | null
+  onboarding_complete: boolean
+  created_at: string
+  portfolio_images: { public_url: string; caption: string | null; display_order: number }[]
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
@@ -64,7 +81,10 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    let { data: artists, error, count } = await dbQuery
+    const primaryRes = await dbQuery
+    let artists = primaryRes.data as unknown as ArtistSearchRow[] | null
+    let error = primaryRes.error
+    let count = primaryRes.count
 
     // Graceful fallback for missing columns if migration has not been pushed yet
     if (error && (error.code === '42703' || error.message.includes('price_tier') || error.message.includes('is_verified'))) {
@@ -109,7 +129,15 @@ export async function GET(request: NextRequest) {
         .range(offset, offset + limit - 1)
 
       const fallbackRes = await fallbackQuery
-      artists = fallbackRes.data as any
+      const fallbackRows = fallbackRes.data as unknown as Omit<
+        ArtistSearchRow,
+        'is_verified' | 'price_tier'
+      >[] | null
+      artists = (fallbackRows ?? []).map((row) => ({
+        ...row,
+        is_verified: false,
+        price_tier: '££',
+      }))
       error = fallbackRes.error
       count = fallbackRes.count
     }
@@ -121,7 +149,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch review aggregates for each artist
     const artistIds = (artists ?? []).map((a) => a.id)
-    let reviewAggregates: Record<string, { avg: number; count: number }> = {}
+    const reviewAggregates: Record<string, { avg: number; count: number }> = {}
 
     if (artistIds.length > 0) {
       const { data: reviews } = await supabase
@@ -154,13 +182,7 @@ export async function GET(request: NextRequest) {
     }
 
     const result = (artists ?? []).map((artist) => {
-      const portfolio = (
-        (artist.portfolio_images as {
-          public_url: string
-          caption: string | null
-          display_order: number
-        }[]) ?? []
-      )
+      const portfolio = (artist.portfolio_images ?? [])
         .slice()
         .sort((a, b) => a.display_order - b.display_order)
         .slice(0, 4)
@@ -173,7 +195,7 @@ export async function GET(request: NextRequest) {
         username: artist.username,
         displayName: artist.display_name ?? artist.username,
         bio: artist.bio,
-        styleTags: (artist.style_tags as string[]) ?? [],
+        styleTags: artist.style_tags ?? [],
         studioName: artist.studio_name,
         studioAddress: artist.studio_address,
         depositRequired: artist.deposit_required,
@@ -181,8 +203,8 @@ export async function GET(request: NextRequest) {
         portfolioImages: portfolio,
         rating: reviews.avg,
         reviewCount: reviews.count,
-        isVerified: (artist as any).is_verified ?? false,
-        priceTier: (artist as any).price_tier ?? '££',
+        isVerified: artist.is_verified ?? false,
+        priceTier: artist.price_tier ?? '££',
       }
     })
 
