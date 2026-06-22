@@ -21,7 +21,8 @@
     "test:e2e:report": "playwright show-report",
     "db:migrate": "supabase db push",
     "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > lib/database.types.ts"
+    "db:types": "supabase gen types typescript --local > lib/database.types.ts",
+    "set-test-plan": "node scripts/set-test-plan.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.17.0",
