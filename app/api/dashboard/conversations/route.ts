@@ -35,7 +35,7 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
   }
 
-  const { data: conversations } = await supabase
+  const { data: conversations, error: conversationsError } = await supabase
     .from('conversations')
     .select(`
       id,
@@ -53,6 +53,14 @@ export async function GET(): Promise<NextResponse> {
     .eq('artist_id', artist.id)
     .order('last_message_at', { ascending: false })
     .limit(50)
+
+  if (conversationsError) {
+    console.error('[dashboard/conversations] GET failed:', conversationsError.message)
+    return NextResponse.json(
+      { error: 'Failed to load conversations. Please refresh and try again.' },
+      { status: 500 },
+    )
+  }
 
   const result = (conversations ?? []).map((c) => {
     const msgs = (c.messages as unknown as ConversationMessageRow[]) ?? []
