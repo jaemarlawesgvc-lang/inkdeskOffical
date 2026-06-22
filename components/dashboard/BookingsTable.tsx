@@ -136,6 +136,35 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
     }
   }
 
+  // ── Message client (creates/reuses a conversation, then opens Messages) ──
+  const [messagingId, setMessagingId] = useState<string | null>(null)
+
+  const messageClient = async (booking: Booking) => {
+    setMessagingId(booking.id)
+    setActionError(null)
+    try {
+      const res = await fetch('/api/dashboard/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: booking.client_name,
+          clientEmail: booking.client_email,
+          bookingId: booking.id,
+        }),
+      })
+      const data = (await res.json().catch(() => null)) as { conversation?: { id: string }; error?: string } | null
+      if (!res.ok || !data?.conversation) {
+        setActionError(data?.error ?? 'Failed to start conversation')
+        return
+      }
+      router.push(`/dashboard/messages?c=${data.conversation.id}`)
+    } catch {
+      setActionError('Network error — could not start conversation.')
+    } finally {
+      setMessagingId(null)
+    }
+  }
+
   const saveNote = async (bookingId: string, note: string) => {
     setSavingNoteId(bookingId)
     await performAction(bookingId, 'add_note', { note })
@@ -457,6 +486,14 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => messageClient(booking)}
+                          disabled={messagingId === booking.id}
+                          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+                        >
+                          {messagingId === booking.id ? 'Opening…' : 'Message'}
+                        </button>
                         {booking.status === 'pending' && (
                           <button
                             type="button"

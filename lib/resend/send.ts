@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, type SendResult } from '@/lib/resend/client'
 import {
   bookingConfirmationTemplate,
+  bookingPendingTemplate,
+  bookingCancelledTemplate,
   artistNotificationTemplate,
   reminder48hTemplate,
   reminder7dayTemplate,
@@ -89,6 +91,56 @@ export async function sendBookingConfirmation(
     subject,
     html,
     emailType: 'booking_confirmation',
+    bookingId: booking.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 1b. Booking Pending → client (request received, awaiting confirmation)
+// ---------------------------------------------------------------------------
+
+export async function sendBookingPending(
+  supabase: SupabaseClient,
+  booking: BookingWithArtist,
+): Promise<SendResult> {
+  const data = buildEmailData(booking, {
+    includeDashboardUrl: false,
+    includeStatusUrl: true,
+  })
+  const { subject, html } = bookingPendingTemplate(data)
+
+  return sendEmail({
+    to: booking.clientEmail,
+    subject,
+    html,
+    emailType: 'booking_pending',
+    bookingId: booking.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 1c. Booking Cancelled → client
+// ---------------------------------------------------------------------------
+
+export async function sendBookingCancelled(
+  supabase: SupabaseClient,
+  booking: BookingWithArtist,
+): Promise<SendResult> {
+  const data = buildEmailData(booking, {
+    includeDashboardUrl: false,
+    includeStatusUrl: true,
+  })
+  const { subject, html } = bookingCancelledTemplate(data)
+
+  return sendEmail({
+    to: booking.clientEmail,
+    subject,
+    html,
+    emailType: 'booking_cancelled',
     bookingId: booking.bookingId,
     userId: null,
     supabase,

@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/server'
 import { submitBookingSchema } from '@/lib/validations/booking'
 import { validateHold } from '@/lib/booking/availability'
 import { resolveActivePlan, checkBooleanFeature } from '@/lib/stripe/plans'
+import { loadBookingWithArtist, sendBookingPending, sendArtistNotification } from '@/lib/resend/send'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: unknown
@@ -237,6 +238,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       last_booking_at: new Date().toISOString(),
       booking_count: 1,
     })
+  }
+
+  // ── Notify: pending email to client, new-booking email to artist ──
+  // The deposit path's artist notification is sent by the Stripe webhook once
+  // payment succeeds, so it's skipped here to avoid double-notifying the artist.
+  // Awaited (each wrapped in .catch) rather than fire-and-forget: on serverless
+  // the function can be frozen the instant the response is sent, so a promise
+  // left un-awaited could be killed mid-send.
+  const notifyBookingData = await loadBookingWithArtist(supabase, booking.id)
+  if (notifyBookingData) {
+    const emailTasks = [
+      sendBookingPending(supabase, notifyBookingData).catch((err) => {
+        console.error('[submit-booking] pending email failed:', err instanceof Error ? err.message : err)
+      }),
+    ]
+    if (!depositActive) {
+      emailTasks.push(
+        sendArtistNotification(supabase, notifyBookingData).catch((err) => {
+          console.error('[submit-booking] artist notification failed:', err instanceof Error ? err.message : err)
+        }),
+      )
+    }
+    await Promise.allSettled(emailTasks)
   }
 
   // ── 8. Build response ──

@@ -2,6 +2,7 @@ import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
+import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled } from '@/lib/resend/send'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -116,6 +117,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (error) {
     console.error(`[booking-action] ${action} failed:`, error.message)
     return NextResponse.json({ error: error.message || 'Update failed' }, { status: 500 })
+  }
+
+  // Notify the client of the status change. Awaited (with .catch) so the send
+  // actually completes before this serverless invocation can be frozen.
+  if (action === 'confirm' || action === 'cancel') {
+    const notifyBookingData = await loadBookingWithArtist(db, bookingId)
+    if (notifyBookingData) {
+      if (action === 'confirm') {
+        // Deposit-bearing bookings get their confirmation email from the Stripe
+        // webhook once payment succeeds. If an artist manually confirms one
+        // before it's paid, skip the email here rather than telling the client
+        // they're confirmed when no payment has actually gone through.
+        if (notifyBookingData.depositAmount === null) {
+          await sendBookingConfirmation(db, notifyBookingData).catch((err) => {
+            console.error('[booking-action] confirm email failed:', err instanceof Error ? err.message : err)
+          })
+        }
+      } else {
+        await sendBookingCancelled(db, notifyBookingData).catch((err) => {
+          console.error('[booking-action] cancel email failed:', err instanceof Error ? err.message : err)
+        })
+      }
+    }
   }
 
   if (action === 'cancel' && bookingBeforeUpdate) {

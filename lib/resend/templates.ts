@@ -553,3 +553,64 @@ export function consentFormSubmittedTemplate(data: ConsentFormSubmittedData): {
     html: layout(content, data.artistEmail ?? undefined),
   }
 }
+
+// ---------------------------------------------------------------------------
+// 11. Booking Pending — to client (request received, awaiting confirmation)
+// ---------------------------------------------------------------------------
+
+export function bookingPendingTemplate(data: BookingEmailData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.bookingDate)
+  const timeDisplay = formatTime(data.bookingTime)
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Booking request received</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, your booking request with <strong style="color:#ffffff;">${esc(data.artistName)}</strong> has been received and is awaiting confirmation.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#262626;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Requested date</td>
+    <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
+</table>
+<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  ${esc(data.artistName)} will review your request and confirm shortly. You&rsquo;ll receive another email as soon as it&rsquo;s confirmed.
+</p>
+${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View booking status</a>` : ''}`
+
+  return {
+    subject: `Booking request received — ${data.artistName}`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 12. Booking Cancelled — to client
+// ---------------------------------------------------------------------------
+
+export function bookingCancelledTemplate(data: BookingEmailData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.bookingDate)
+  const timeDisplay = formatTime(data.bookingTime)
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Booking cancelled</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, your appointment with <strong style="color:#ffffff;">${esc(data.artistName)}</strong> has been cancelled.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#262626;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Date</td>
+    <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
+</table>
+<p style="margin:0;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  If this wasn&rsquo;t expected or you&rsquo;d like to rebook, please get in touch with your artist directly.
+</p>`
+
+  return {
+    subject: `Your booking with ${data.artistName} has been cancelled`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}
