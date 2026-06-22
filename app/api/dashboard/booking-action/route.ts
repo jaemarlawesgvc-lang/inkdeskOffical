@@ -2,7 +2,7 @@ import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
-import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled } from '@/lib/resend/send'
+import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled, sendBookingCompleted } from '@/lib/resend/send'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -121,22 +121,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Notify the client of the status change. Awaited (with .catch) so the send
   // actually completes before this serverless invocation can be frozen.
-  if (action === 'confirm' || action === 'cancel') {
+  if (action === 'confirm' || action === 'cancel' || action === 'complete') {
     const notifyBookingData = await loadBookingWithArtist(db, bookingId)
     if (notifyBookingData) {
       if (action === 'confirm') {
-        // Deposit-bearing bookings get their confirmation email from the Stripe
-        // webhook once payment succeeds. If an artist manually confirms one
-        // before it's paid, skip the email here rather than telling the client
-        // they're confirmed when no payment has actually gone through.
-        if (notifyBookingData.depositAmount === null) {
-          await sendBookingConfirmation(db, notifyBookingData).catch((err) => {
-            console.error('[booking-action] confirm email failed:', err instanceof Error ? err.message : err)
-          })
-        }
-      } else {
+        // Always attempt this, even for deposit-bearing bookings the artist
+        // confirmed manually ahead of payment — sendEmail() dedupes on
+        // (bookingId, emailType), so if the Stripe webhook already sent (or
+        // later sends) its own booking_confirmation for this booking, the
+        // extra attempt is a safe no-op rather than a real double-send.
+        await sendBookingConfirmation(db, notifyBookingData).catch((err) => {
+          console.error('[booking-action] confirm email failed:', err instanceof Error ? err.message : err)
+        })
+      } else if (action === 'cancel') {
         await sendBookingCancelled(db, notifyBookingData).catch((err) => {
           console.error('[booking-action] cancel email failed:', err instanceof Error ? err.message : err)
+        })
+      } else {
+        await sendBookingCompleted(db, notifyBookingData).catch((err) => {
+          console.error('[booking-action] complete email failed:', err instanceof Error ? err.message : err)
         })
       }
     }

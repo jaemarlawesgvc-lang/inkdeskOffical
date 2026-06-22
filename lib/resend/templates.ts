@@ -614,3 +614,29 @@ export function bookingCancelledTemplate(data: BookingEmailData): {
     html: layout(content, data.artistEmail ?? undefined),
   }
 }
+
+// ---------------------------------------------------------------------------
+// 13. Booking Completed — to client
+// ---------------------------------------------------------------------------
+
+export function bookingCompletedTemplate(data: BookingEmailData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.bookingDate)
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Hope you love your new tattoo!</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, your appointment with <strong style="color:#ffffff;">${esc(data.artistName)}</strong> on ${dateDisplay} has been marked complete.
+</p>
+<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Take good care of it while it heals. If you have any questions about aftercare, reach out to your artist directly.
+</p>
+${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View booking</a>` : ''}`
+
+  return {
+    subject: `Your tattoo with ${data.artistName} is complete`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}
