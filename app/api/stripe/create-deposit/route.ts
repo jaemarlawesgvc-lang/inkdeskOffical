@@ -27,20 +27,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { bookingId, artistId, clientEmail, accessToken } = parsed.data
 
+  // Load the booking first, so we know if a custom deposit has been set for this specific booking
+  const { data: booking, error: bookingError } = await supabase
+    .from('bookings')
+    .select('id, status, deposit_paid, stripe_payment_intent_id, access_token, deposit_amount, artist_id, client_email')
+    .eq('id', bookingId)
+    .single()
+
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+  }
+
+  if (booking.access_token !== accessToken) {
+    return NextResponse.json({ error: 'Invalid access token' }, { status: 403 })
+  }
+
+  if (artistId && booking.artist_id !== artistId) {
+    return NextResponse.json({ error: 'Artist ID mismatch' }, { status: 400 })
+  }
+
+  if (booking.deposit_paid) {
+    return NextResponse.json({ error: 'Deposit has already been paid' }, { status: 409 })
+  }
+
   // Load the artist and their subscription to enforce deposit feature gate
   const { data: artist, error: artistError } = await supabase
     .from('artists')
     .select('id, user_id, deposit_amount, deposit_required')
-    .eq('id', artistId)
+    .eq('id', booking.artist_id)
     .single()
 
   if (artistError || !artist) {
     return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
   }
 
-  if (!artist.deposit_required || !artist.deposit_amount) {
+  // Determine deposit amount: booking-specific takes precedence over artist-wide default
+  const depositAmount = booking.deposit_amount !== null && booking.deposit_amount !== undefined
+    ? Number(booking.deposit_amount)
+    : (artist.deposit_required && artist.deposit_amount ? Number(artist.deposit_amount) : null)
+
+  if (depositAmount === null || depositAmount <= 0) {
     return NextResponse.json(
-      { error: 'This artist does not require deposits' },
+      { error: 'This booking does not require a deposit' },
       { status: 422 },
     )
   }
@@ -67,26 +95,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Verify the booking exists, belongs to this artist, and the access_token matches
-  const { data: booking, error: bookingError } = await supabase
-    .from('bookings')
-    .select('id, status, deposit_paid, stripe_payment_intent_id, access_token')
-    .eq('id', bookingId)
-    .eq('artist_id', artistId)
-    .single()
-
-  if (bookingError || !booking) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
-  }
-
-  if (booking.access_token !== accessToken) {
-    return NextResponse.json({ error: 'Invalid access token' }, { status: 403 })
-  }
-
-  if (booking.deposit_paid) {
-    return NextResponse.json({ error: 'Deposit has already been paid' }, { status: 409 })
-  }
-
   // If a PaymentIntent already exists for this booking, return its client secret
   // instead of creating a duplicate
   if (booking.stripe_payment_intent_id) {
@@ -97,11 +105,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         booking.stripe_payment_intent_id,
       )
 
-      // Only reuse if the intent is still actionable
+      // Only reuse if the intent is still actionable and matching the required amount
+      // Convert depositAmount to pence to compare with Stripe's amount
+      const expectedAmountInPence = Math.round(depositAmount * 100)
       if (
-        existingIntent.status === 'requires_payment_method' ||
-        existingIntent.status === 'requires_confirmation' ||
-        existingIntent.status === 'requires_action'
+        existingIntent.amount === expectedAmountInPence &&
+        (existingIntent.status === 'requires_payment_method' ||
+         existingIntent.status === 'requires_confirmation' ||
+         existingIntent.status === 'requires_action')
       ) {
         return NextResponse.json({
           clientSecret: existingIntent.client_secret,
@@ -109,28 +120,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         })
       }
     } catch {
-      // Intent no longer valid — fall through to create a new one
+      // Intent no longer valid or amount changed — fall through to create a new one
     }
   }
 
   // Convert deposit_amount (decimal pounds) to pence
-  const amountInPence = Math.round(artist.deposit_amount * 100)
+  const amountInPence = Math.round(depositAmount * 100)
+
+  const finalClientEmail = clientEmail || booking.client_email
 
   try {
     const { clientSecret, paymentIntentId } = await createDepositPaymentIntent({
       amount: amountInPence,
       currency: 'gbp',
       bookingId,
-      artistId,
-      clientEmail,
+      artistId: booking.artist_id,
+      clientEmail: finalClientEmail,
     })
 
-    // Store the PaymentIntent ID on the booking
+    // Store the PaymentIntent ID and deposit amount on the booking
     const { error: updateError } = await supabase
       .from('bookings')
       .update({
         stripe_payment_intent_id: paymentIntentId,
-        deposit_amount: artist.deposit_amount,
+        deposit_amount: depositAmount,
         updated_at: new Date().toISOString(),
       })
       .eq('id', bookingId)

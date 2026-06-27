@@ -2,14 +2,19 @@ import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
-import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled, sendBookingCompleted } from '@/lib/resend/send'
+import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled, sendBookingCompleted, sendBookingUpgraded } from '@/lib/resend/send'
 import { z } from 'zod'
 
 const schema = z.object({
   bookingId: z.string().uuid(),
   artistId: z.string().uuid(),
-  action: z.enum(['confirm', 'cancel', 'complete', 'add_note']),
+  action: z.enum(['confirm', 'cancel', 'complete', 'add_note', 'upgrade']),
   note: z.string().max(1000).optional(),
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
+  bookingTime: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM').optional(),
+  durationHours: z.number().positive().max(16).optional(),
+  totalAmount: z.number().nonnegative().optional(),
+  depositAmount: z.number().nonnegative().optional(),
 })
 
 const STATUS_TRANSITIONS: Record<string, string> = {
@@ -92,6 +97,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.error('[booking-action] note update failed:', error.message)
       return NextResponse.json({ error: error.message || 'Failed to save note' }, { status: 500 })
     }
+    return NextResponse.json({ ok: true })
+  }
+
+  if (action === 'upgrade') {
+    const { bookingDate, bookingTime, durationHours, totalAmount, depositAmount } = parsed.data
+    if (!bookingDate || !bookingTime || !durationHours || totalAmount === undefined || depositAmount === undefined) {
+      return NextResponse.json({ error: 'Missing required upgrade parameters' }, { status: 422 })
+    }
+
+    const { error } = await db
+      .from('bookings')
+      .update({
+        booking_type: 'live',
+        booking_date: bookingDate,
+        booking_time: bookingTime,
+        duration_hours: durationHours,
+        total_amount: totalAmount,
+        deposit_amount: depositAmount,
+        deposit_paid: false,
+        status: 'pending',
+        stripe_payment_intent_id: null, // Clear old payment intent to allow new checkout session
+        stripe_payment_status: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookingId)
+      .eq('artist_id', artistId)
+
+    if (error) {
+      console.error('[booking-action] upgrade failed:', error.message)
+      return NextResponse.json({ error: error.message || 'Upgrade failed' }, { status: 500 })
+    }
+
+    // Send email to client
+    const notifyBookingData = await loadBookingWithArtist(db, bookingId)
+    if (notifyBookingData) {
+      await sendBookingUpgraded(db, notifyBookingData).catch((err) => {
+        console.error('[booking-action] upgrade email failed:', err instanceof Error ? err.message : err)
+      })
+    }
+
     return NextResponse.json({ ok: true })
   }
 

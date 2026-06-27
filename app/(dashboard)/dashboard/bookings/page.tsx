@@ -55,7 +55,9 @@ export default async function BookingsPage() {
       description,
       reference_image_paths,
       stripe_payment_status,
-      created_at
+      created_at,
+      booking_type,
+      total_amount
     `,
     )
     .eq('artist_id', artist.id)
@@ -113,6 +115,8 @@ export default async function BookingsPage() {
       completed_photo_url: completedPhotos[id] ?? null,
       created_at: row.created_at as string,
       review: reviewsByBooking[id] ?? null,
+      booking_type: (row.booking_type as string) ?? 'consultation',
+      total_amount: (row.total_amount as number | null) ?? null,
     }
   })
 

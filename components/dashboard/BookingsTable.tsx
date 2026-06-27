@@ -27,6 +27,8 @@ interface Booking {
   completed_photo_url: string | null
   created_at: string
   review: { id: string; rating: number | null; flagged: boolean } | null
+  booking_type: string
+  total_amount: number | null
 }
 
 interface BookingsTableProps {
@@ -107,6 +109,63 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
   const [noteValues, setNoteValues] = useState<Record<string, string>>({})
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  // Upgrade Modal states
+  const [upgradingBooking, setUpgradingBooking] = useState<Booking | null>(null)
+  const [upgradeDate, setUpgradeDate] = useState('')
+  const [upgradeTime, setUpgradeTime] = useState('')
+  const [upgradeDuration, setUpgradeDuration] = useState('2.0')
+  const [upgradeTotal, setUpgradeTotal] = useState('')
+  const [upgradeDeposit, setUpgradeDeposit] = useState('')
+  const [upgradeError, setUpgradeError] = useState<string | null>(null)
+  const [isUpgrading, setIsUpgrading] = useState(false)
+
+  const handleUpgrade = async () => {
+    if (!upgradingBooking) return
+    setUpgradeError(null)
+    setIsUpgrading(true)
+
+    const dateVal = upgradeDate.trim()
+    const timeVal = upgradeTime.trim()
+    const durationVal = parseFloat(upgradeDuration)
+    const totalVal = parseFloat(upgradeTotal)
+    const depositVal = parseFloat(upgradeDeposit)
+
+    if (!dateVal || !timeVal || isNaN(durationVal) || isNaN(totalVal) || isNaN(depositVal)) {
+      setUpgradeError('All fields are required and must be valid numbers.')
+      setIsUpgrading(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/dashboard/booking-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: upgradingBooking.id,
+          artistId,
+          action: 'upgrade',
+          bookingDate: dateVal,
+          bookingTime: timeVal,
+          durationHours: durationVal,
+          totalAmount: totalVal,
+          depositAmount: depositVal,
+        }),
+      })
+
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: string }
+        throw new Error(json.error ?? 'Upgrade failed.')
+      }
+
+      setUpgradingBooking(null)
+      startTransition(() => router.refresh())
+    } catch (err) {
+      setUpgradeError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setIsUpgrading(false)
+    }
+  }
 
   const canExport = plan === 'pro' || plan === 'studio'
 
@@ -373,6 +432,16 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                           <p className="text-xs text-white/30 uppercase tracking-wider mb-0.5">Booked</p>
                           <p className="text-white text-sm">{formatDate(booking.created_at.slice(0, 10))}</p>
                         </div>
+                        <div>
+                          <p className="text-xs text-white/30 uppercase tracking-wider mb-0.5">Booking Type</p>
+                          <p className="text-white text-sm capitalize">{booking.booking_type || 'consultation'}</p>
+                        </div>
+                        {booking.total_amount !== null && booking.total_amount !== undefined && (
+                          <div>
+                            <p className="text-xs text-white/30 uppercase tracking-wider mb-0.5">Total Fee</p>
+                            <p className="text-white text-sm">£{Number(booking.total_amount).toFixed(2)}</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Description */}
@@ -495,17 +564,45 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                         >
                           {messagingId === booking.id ? 'Opening…' : 'Message'}
                         </button>
-                        {booking.status === 'pending' && (
+                        {/* Upgrade button - show if booking is a consultation and confirmed/paid */}
+                        {booking.booking_type === 'consultation' && (booking.status === 'confirmed' || booking.status === 'deposit_paid') && (
                           <button
                             type="button"
-                            onClick={() => performAction(booking.id, 'confirm')}
-                            disabled={isPending}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+                            onClick={() => {
+                              setUpgradingBooking(booking)
+                              setUpgradeDate(booking.booking_date)
+                              setUpgradeTime(booking.booking_time || '')
+                              setUpgradeDuration('2.0')
+                              setUpgradeTotal('')
+                              setUpgradeDeposit('')
+                              setUpgradeError(null)
+                            }}
+                            className="px-4 py-2 bg-white text-black hover:bg-white/90 text-sm font-medium rounded-lg transition-colors animate-pulse"
                           >
-                            Confirm
+                            Upgrade to Live Booking
                           </button>
                         )}
-                        {(booking.status === 'confirmed' || booking.status === 'deposit_paid') && (
+
+                        {/* Gated Confirm button for live bookings awaiting deposit */}
+                        {booking.booking_type === 'live' && booking.status === 'pending' && booking.deposit_amount && booking.deposit_amount > 0 && !booking.deposit_paid ? (
+                          <span className="inline-flex items-center text-amber-400 text-xs font-semibold px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                            Awaiting client deposit
+                          </span>
+                        ) : (
+                          // Show confirm button if pending OR if status is deposit_paid and booking is live
+                          ((booking.status === 'pending') || (booking.status === 'deposit_paid' && booking.booking_type === 'live')) && (
+                            <button
+                              type="button"
+                              onClick={() => performAction(booking.id, 'confirm')}
+                              disabled={isPending}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+                            >
+                              Confirm
+                            </button>
+                          )
+                        )}
+
+                        {(booking.status === 'confirmed' || (booking.status === 'deposit_paid' && booking.booking_type !== 'live')) && (
                           <button
                             type="button"
                             onClick={() => performAction(booking.id, 'complete')}
@@ -515,6 +612,7 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                             Mark complete
                           </button>
                         )}
+
                         {booking.status !== 'cancelled' && booking.status !== 'completed' && (
                           <button
                             type="button"
@@ -535,6 +633,109 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+      {/* Upgrade to Live Booking Modal Overlay */}
+      {upgradingBooking && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity duration-300" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
+          <div className="bg-zinc-900 border border-white/10 w-full max-w-md rounded-2xl p-6 space-y-4 shadow-xl text-left">
+            <div className="flex items-center justify-between">
+              <h3 id="upgrade-title" className="text-lg font-semibold text-white">Upgrade consultation for {upgradingBooking.client_name}</h3>
+              <button
+                type="button"
+                onClick={() => setUpgradingBooking(null)}
+                className="text-white/40 hover:text-white transition-colors"
+                aria-label="Close upgrade modal"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {upgradeError && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-lg">
+                {upgradeError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-white/40 uppercase tracking-wider mb-1 font-medium">Tattoo Session Date</label>
+                <input
+                  type="date"
+                  value={upgradeDate}
+                  onChange={(e) => setUpgradeDate(e.target.value)}
+                  className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors [color-scheme:dark]"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-white/40 uppercase tracking-wider mb-1 font-medium">Session Start Time</label>
+                  <input
+                    type="time"
+                    value={upgradeTime}
+                    onChange={(e) => setUpgradeTime(e.target.value)}
+                    className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors [color-scheme:dark]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 uppercase tracking-wider mb-1 font-medium">Duration (Hours)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="16"
+                    value={upgradeDuration}
+                    onChange={(e) => setUpgradeDuration(e.target.value)}
+                    className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-white/40 uppercase tracking-wider mb-1 font-medium">Full Fee (£)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 500.00"
+                    value={upgradeTotal}
+                    onChange={(e) => setUpgradeTotal(e.target.value)}
+                    className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 uppercase tracking-wider mb-1 font-medium">Deposit Amount (£)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 50.00"
+                    value={upgradeDeposit}
+                    onChange={(e) => setUpgradeDeposit(e.target.value)}
+                    className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                disabled={isUpgrading}
+                className="w-full py-3 bg-white hover:bg-white/90 text-black font-semibold rounded-lg text-sm transition-colors mt-2"
+              >
+                {isUpgrading ? 'Upgrading…' : 'Upgrade to Live Booking'}
+              </button>
+            </div>
           </div>
         </div>
       )}

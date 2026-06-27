@@ -290,7 +290,7 @@ async function handlePaymentIntentSucceeded(
   // ── Step 1: Load the booking ──
   const { data: booking, error: bookingError } = await supabase
     .from('bookings')
-    .select('id, artist_id, booking_date, booking_time, status, deposit_paid')
+    .select('id, artist_id, booking_date, booking_time, status, deposit_paid, booking_type')
     .eq('id', bookingId)
     .single()
 
@@ -304,18 +304,24 @@ async function handlePaymentIntentSucceeded(
   }
 
   // ── Step 2: Verify booking hold still exists ──
-  const holdQuery = supabase
-    .from('booking_holds')
-    .select('id')
-    .eq('artist_id', artistId)
-    .eq('booking_date', booking.booking_date)
-    .gt('expires_at', new Date().toISOString())
+  const isLiveBooking = booking.booking_type === 'live'
+  let hold = null
 
-  if (booking.booking_time) {
-    holdQuery.eq('booking_time', booking.booking_time)
+  if (!isLiveBooking) {
+    const holdQuery = supabase
+      .from('booking_holds')
+      .select('id')
+      .eq('artist_id', artistId)
+      .eq('booking_date', booking.booking_date)
+      .gt('expires_at', new Date().toISOString())
+
+    if (booking.booking_time) {
+      holdQuery.eq('booking_time', booking.booking_time)
+    }
+
+    const { data: holdData } = await holdQuery.maybeSingle()
+    hold = holdData
   }
-
-  const { data: hold } = await holdQuery.maybeSingle()
 
   // ── Step 3: Check for conflicting confirmed bookings ──
   const conflictQuery = supabase
@@ -333,7 +339,7 @@ async function handlePaymentIntentSucceeded(
   const { data: conflicts } = await conflictQuery
 
   const hasConflict = (conflicts && conflicts.length > 0) || false
-  const holdExpired = !hold
+  const holdExpired = isLiveBooking ? false : !hold
 
   // ── Step 4: If conflict or hold expired → refund ──
   if (hasConflict || holdExpired) {

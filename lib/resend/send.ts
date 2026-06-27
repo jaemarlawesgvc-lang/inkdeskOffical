@@ -5,6 +5,7 @@ import {
   bookingPendingTemplate,
   bookingCancelledTemplate,
   bookingCompletedTemplate,
+  bookingUpgradedTemplate,
   artistNotificationTemplate,
   reminder48hTemplate,
   reminder7dayTemplate,
@@ -167,6 +168,31 @@ export async function sendBookingCompleted(
     subject,
     html,
     emailType: 'booking_completed',
+    bookingId: booking.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 1e. Booking Upgraded → client
+// ---------------------------------------------------------------------------
+
+export async function sendBookingUpgraded(
+  supabase: SupabaseClient,
+  booking: BookingWithArtist,
+): Promise<SendResult> {
+  const data = buildEmailData(booking, {
+    includeDashboardUrl: false,
+    includeStatusUrl: true,
+  })
+  const { subject, html } = bookingUpgradedTemplate(data)
+
+  return sendEmail({
+    to: booking.clientEmail,
+    subject,
+    html,
+    emailType: 'booking_upgraded',
     bookingId: booking.bookingId,
     userId: null,
     supabase,

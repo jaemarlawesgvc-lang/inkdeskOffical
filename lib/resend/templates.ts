@@ -640,3 +640,40 @@ ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padd
     html: layout(content, data.artistEmail ?? undefined),
   }
 }
+
+// ---------------------------------------------------------------------------
+// 14. Booking Upgraded / Deposit Request — to client
+// ---------------------------------------------------------------------------
+
+export function bookingUpgradedTemplate(data: BookingEmailData): {
+  subject: string
+  html: string
+} {
+  const dateDisplay = formatDate(data.bookingDate)
+  const timeDisplay = formatTime(data.bookingTime)
+
+  const depositLine = data.depositAmount
+    ? `<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Deposit required</td>
+       <td style="padding:8px 0;color:#f59e0b;font-size:14px;text-align:right;">&pound;${data.depositAmount.toFixed(2)}</td></tr>`
+    : ''
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Booking upgraded</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, your appointment with <strong style="color:#ffffff;">${esc(data.artistName)}</strong> has been upgraded to a live tattoo booking.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#262626;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr><td style="padding:8px 0;color:#a3a3a3;font-size:14px;">Tattoo date</td>
+    <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
+${depositLine}
+</table>
+<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  To secure this booking, please pay the deposit of &pound;${(data.depositAmount ?? 0).toFixed(2)} via the link below.
+</p>
+${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Pay deposit & view status</a>` : ''}`
+
+  return {
+    subject: `Your booking with ${data.artistName} has been upgraded`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}

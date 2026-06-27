@@ -18,8 +18,8 @@ export type CreateCheckoutInput = z.infer<typeof createCheckoutSchema>
 
 export const createDepositSchema = z.object({
   bookingId: z.string().uuid('Invalid booking ID'),
-  artistId: z.string().uuid('Invalid artist ID'),
-  clientEmail: z.string().email('Invalid client email'),
+  artistId: z.string().uuid('Invalid artist ID').optional(),
+  clientEmail: z.string().email('Invalid client email').optional(),
   accessToken: z.string().min(1, 'Access token is required'),
 })
 
