@@ -100,13 +100,28 @@ export async function getConsultationSlotsForDate(
     .eq('day_of_week', dayOfWeek)
     .maybeSingle()
 
-  if (!availability) {
+  let workingHours = availability
+
+  if (!workingHours) {
+    const { count } = await supabase
+      .from('artist_availability')
+      .select('id', { count: 'exact', head: true })
+      .eq('artist_id', artistId)
+
+    if (count === 0) {
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        workingHours = { start_time: '09:00:00', end_time: '17:00:00' }
+      }
+    }
+  }
+
+  if (!workingHours) {
     return { slots: [], reason: 'The artist is not available on this day' }
   }
 
   const allSlots = generateSlotTimes(
-    availability.start_time,
-    availability.end_time,
+    workingHours.start_time,
+    workingHours.end_time,
     CONSULTATION_SLOT_INTERVAL_MINUTES,
     durationHours,
   )

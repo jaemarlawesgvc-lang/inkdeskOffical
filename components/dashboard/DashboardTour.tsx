@@ -16,8 +16,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
-const STORAGE_KEY = 'inkdesk_dashboard_tour_v1'
+const STORAGE_KEY = 'inkdesk_dashboard_tour_v2'
 
 interface TourStep {
   /** First visible match wins. */
@@ -109,7 +110,12 @@ function firstVisible(selectors: string[]): HTMLElement | null {
   return null
 }
 
-export function DashboardTour() {
+interface DashboardTourProps {
+  tourCompleted?: boolean
+  artistId?: string
+}
+
+export function DashboardTour({ tourCompleted = false, artistId }: DashboardTourProps) {
   const [mounted, setMounted] = useState(false)
   // phase: 'welcome' shows the intro popup, 'tour' runs the spotlight, null = closed
   const [phase, setPhase] = useState<'welcome' | 'tour' | null>(null)
@@ -119,12 +125,13 @@ export function DashboardTour() {
 
   useEffect(() => {
     setMounted(true)
+    if (tourCompleted) return
     try {
       if (!localStorage.getItem(STORAGE_KEY)) setPhase('welcome')
     } catch {
       /* localStorage unavailable — just don't auto-show */
     }
-  }, [])
+  }, [tourCompleted])
 
   const finish = useCallback(() => {
     setPhase(null)
@@ -133,7 +140,14 @@ export function DashboardTour() {
     } catch {
       /* ignore */
     }
-  }, [])
+    if (artistId) {
+      const supabase = getSupabaseBrowserClient()
+      void supabase
+        .from('artists')
+        .update({ tour_completed: true })
+        .eq('id', artistId)
+    }
+  }, [artistId])
 
   // Resolve the next/prev step that actually has a visible target.
   const resolveFrom = useCallback((from: number, dir: 1 | -1): number => {

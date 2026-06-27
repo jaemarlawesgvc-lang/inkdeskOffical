@@ -81,8 +81,8 @@ export async function GET(): Promise<NextResponse> {
 }
 
 const createSchema = z.object({
-  clientName: z.string().min(1).max(100),
-  clientEmail: z.string().email(),
+  clientName: z.string().min(1).max(100).optional(),
+  clientEmail: z.string().email().optional(),
   bookingId: z.string().uuid().optional(),
 })
 
@@ -122,11 +122,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { clientName, clientEmail, bookingId } = parsed.data
 
+  let finalClientName = clientName
+  let finalClientEmail = clientEmail
+
+  if (bookingId) {
+    const { data: booking, error: bookingErr } = await supabase
+      .from('bookings')
+      .select('client_name, client_email')
+      .eq('id', bookingId)
+      .eq('artist_id', artist.id)
+      .single()
+
+    if (bookingErr || !booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
+    if (!finalClientName) finalClientName = booking.client_name
+    if (!finalClientEmail) finalClientEmail = booking.client_email
+  }
+
+  if (!finalClientName || !finalClientEmail) {
+    return NextResponse.json({ error: 'Client name and email are required' }, { status: 422 })
+  }
+
   const { data: existing } = await supabase
     .from('conversations')
     .select('id')
     .eq('artist_id', artist.id)
-    .eq('client_email', clientEmail.toLowerCase())
+    .eq('client_email', finalClientEmail.toLowerCase())
     .maybeSingle()
 
   if (existing) {
@@ -137,8 +160,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .from('conversations')
     .insert({
       artist_id: artist.id,
-      client_name: clientName,
-      client_email: clientEmail.toLowerCase(),
+      client_name: finalClientName,
+      client_email: finalClientEmail.toLowerCase(),
       booking_id: bookingId ?? null,
     })
     .select('id, client_token')
@@ -153,8 +176,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Failure here must not fail conversation creation; the artist can still
   // resend by recreating contact through other channels.
   await sendConversationInvite(supabase, {
-    to: clientEmail.toLowerCase(),
-    clientName,
+    to: finalClientEmail.toLowerCase(),
+    clientName: finalClientName,
     artistName: artist.display_name ?? artist.username,
     conversationUrl: `${getAppUrl()}/conversation?token=${conv.client_token}`,
     artistEmail: user.email ?? null,

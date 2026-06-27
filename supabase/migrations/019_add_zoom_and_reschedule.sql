@@ -1,11 +1,10 @@
--- Migration 018: Add booking_type column, booking_upgraded email type, and tour_completed column
-
-ALTER TABLE public.bookings
-  ADD COLUMN IF NOT EXISTS booking_type text NOT NULL DEFAULT 'consultation'
-  CHECK (booking_type IN ('consultation', 'live'));
+-- Migration 019: Add zoom_link columns and reschedule email logging type
 
 ALTER TABLE public.artists
-  ADD COLUMN IF NOT EXISTS tour_completed boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS zoom_link text;
+
+ALTER TABLE public.bookings
+  ADD COLUMN IF NOT EXISTS zoom_link text;
 
 ALTER TABLE public.email_logs DROP CONSTRAINT IF EXISTS email_logs_email_type_check;
 ALTER TABLE public.email_logs ADD CONSTRAINT email_logs_email_type_check
@@ -15,6 +14,7 @@ ALTER TABLE public.email_logs ADD CONSTRAINT email_logs_email_type_check
     'booking_cancelled',
     'booking_completed',
     'booking_upgraded',
+    'booking_rescheduled',
     'artist_notification',
     'reminder_48h',
     'reminder_7day',

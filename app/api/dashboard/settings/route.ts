@@ -52,6 +52,7 @@ const schema = z.object({
     .optional(),
   // Custom hero background image — also stored inside `site_data`. Empty string clears it.
   backgroundImageUrl: z.string().url().max(2048).or(z.literal('')).optional(),
+  zoomLink: z.string().max(2048).trim().nullable().optional(),
 })
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -124,6 +125,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (d.emailAftercare !== undefined) updatePayload.email_aftercare = d.emailAftercare
   // Timezone lives on the artists table (NOT artist_availability).
   if (d.timezone !== undefined) updatePayload.timezone = d.timezone || 'Europe/London'
+  if (d.zoomLink !== undefined) updatePayload.zoom_link = d.zoomLink || null
 
   // Colour palette + custom background are merged into the existing site_data
   // JSON so they persist independently of the AI-generated content.

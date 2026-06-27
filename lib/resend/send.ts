@@ -70,6 +70,9 @@ function buildEmailData(
       ? `${appUrl}/api/aftercare-guide?artist_id=${booking.artistId}`
       : null,
     artistEmail: booking.artistEmail,
+    messageClientUrl: opts.includeDashboardUrl
+      ? `${appUrl}/dashboard/messages?bookingId=${booking.bookingId}`
+      : null,
   }
 }
 

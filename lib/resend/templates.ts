@@ -87,6 +87,7 @@ export interface BookingEmailData {
   consentFormUrl: string | null
   aftercareGuideUrl: string | null
   artistEmail: string | null
+  messageClientUrl?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +183,8 @@ ${depositLine}
 </table>
 ${descriptionLine}
 <div style="margin-top:24px;">
-<a href="${data.dashboardUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View in dashboard</a>
+<a href="${data.dashboardUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;margin-right:12px;">View in dashboard</a>
+${data.messageClientUrl ? `<a href="${data.messageClientUrl}" style="display:inline-block;padding:12px 24px;background-color:#262626;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;border:1px solid #404040;">Message client</a>` : ''}
 </div>`
 
   return {

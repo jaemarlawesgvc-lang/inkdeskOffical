@@ -36,7 +36,7 @@ export default async function DashboardLayout({
   // Load artist (may be null)
   const { data: artist } = await supabase
     .from('artists')
-    .select('id, user_id, username, display_name, onboarding_complete')
+    .select('id, user_id, username, display_name, onboarding_complete, tour_completed')
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -80,7 +80,7 @@ export default async function DashboardLayout({
       <BottomNav username={username} />
 
       {/* First-run welcome popup + spotlight walkthrough of the dashboard */}
-      <DashboardTour />
+      <DashboardTour tourCompleted={artist?.tour_completed ?? false} artistId={artist?.id} />
     </div>
   )
 }
