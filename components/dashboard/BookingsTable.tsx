@@ -571,7 +571,7 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                             onClick={() => {
                               setUpgradingBooking(booking)
                               setUpgradeDate(booking.booking_date)
-                              setUpgradeTime(booking.booking_time || '')
+                              setUpgradeTime(booking.booking_time ? booking.booking_time.slice(0, 5) : '')
                               setUpgradeDuration('2.0')
                               setUpgradeTotal('')
                               setUpgradeDeposit('')
@@ -695,6 +695,18 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                     className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors"
                     required
                   />
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {[2, 4, 6, 8].map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setUpgradeDuration(String(h.toFixed(1)))}
+                        className={`px-2 py-0.5 text-[10px] rounded transition-colors ${parseFloat(upgradeDuration) === h ? 'bg-white text-black font-semibold' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                      >
+                        {h}h {h === 4 ? '(Half)' : h === 8 ? '(Full)' : ''}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -707,7 +719,16 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                     min="0"
                     placeholder="e.g. 500.00"
                     value={upgradeTotal}
-                    onChange={(e) => setUpgradeTotal(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setUpgradeTotal(val)
+                      const numVal = parseFloat(val)
+                      if (!isNaN(numVal) && numVal > 0) {
+                        setUpgradeDeposit(String(Math.round(numVal * 0.1))) // auto-fill 10% deposit
+                      } else {
+                        setUpgradeDeposit('0')
+                      }
+                    }}
                     className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors"
                     required
                   />
@@ -724,6 +745,31 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                     className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/25 text-sm focus:outline-none focus:border-white/50 transition-colors"
                     required
                   />
+                  {(() => {
+                    const totalNum = parseFloat(upgradeTotal) || 0
+                    if (totalNum <= 0) return null
+                    const presets = [
+                      { label: '10%', value: Math.round(totalNum * 0.1) },
+                      { label: '20%', value: Math.round(totalNum * 0.2) },
+                      { label: '£50', value: 50 },
+                      { label: '£100', value: 100 },
+                      { label: 'Free', value: 0 }
+                    ]
+                    return (
+                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                        {presets.map((preset, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setUpgradeDeposit(String(preset.value))}
+                            className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${parseFloat(upgradeDeposit) === preset.value ? 'bg-white text-black font-semibold' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
 

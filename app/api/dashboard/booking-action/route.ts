@@ -11,7 +11,7 @@ const schema = z.object({
   action: z.enum(['confirm', 'cancel', 'complete', 'add_note', 'upgrade']),
   note: z.string().max(1000).optional(),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
-  bookingTime: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM').optional(),
+  bookingTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Time must be HH:MM').optional(),
   durationHours: z.number().positive().max(16).optional(),
   totalAmount: z.number().nonnegative().optional(),
   depositAmount: z.number().nonnegative().optional(),
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .update({
         booking_type: 'live',
         booking_date: bookingDate,
-        booking_time: bookingTime,
+        booking_time: bookingTime.slice(0, 5),
         duration_hours: durationHours,
         total_amount: totalAmount,
         deposit_amount: depositAmount,
