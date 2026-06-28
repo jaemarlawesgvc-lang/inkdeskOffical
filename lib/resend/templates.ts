@@ -2,7 +2,12 @@
 // Shared layout wrapper — dark theme, responsive, Inkquire branding
 // ---------------------------------------------------------------------------
 
+const APP_URL =
+  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL?.trim()) ||
+  'https://inkquire.co.uk'
+
 function layout(content: string, artistEmail?: string): string {
+  const contactUrl = `${APP_URL}/contact`
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -29,6 +34,7 @@ ${content}
 You received this email because of a booking on Inkquire.
 </p>
 ${artistEmail ? `<p style="margin:8px 0 0;font-size:12px;color:#525252;line-height:1.5;">Having a problem? <a href="mailto:${artistEmail}" style="color:#a3a3a3;text-decoration:underline;">Contact your artist</a></p>` : ''}
+<p style="margin:8px 0 0;font-size:12px;color:#525252;line-height:1.5;">Need help from Inkquire? <a href="${contactUrl}" style="color:#a3a3a3;text-decoration:underline;">Message us</a></p>
 </td></tr>
 </table>
 </td></tr>
@@ -112,6 +118,20 @@ export function bookingConfirmationTemplate(data: BookingEmailData): {
        <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${esc(data.studioAddress)}</td></tr>`
     : ''
 
+  const zoomLine = data.zoomLink
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+</tr>
+<tr>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation will take place online via Zoom. Click the button below to join the meeting at the scheduled time.</td>
+</tr>
+<tr>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+</tr>
+</table>`
+    : ''
+
   const content = `
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Booking confirmed</h1>
 <p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
@@ -123,6 +143,7 @@ export function bookingConfirmationTemplate(data: BookingEmailData): {
 ${depositLine}
 ${locationLine}
 </table>
+${zoomLine}
 <h2 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#ffffff;">What to bring</h2>
 <ul style="margin:0 0 24px;padding-left:20px;font-size:14px;color:#a3a3a3;line-height:1.8;">
 <li>Photo ID</li>
@@ -210,6 +231,20 @@ export function reminder48hTemplate(data: BookingEmailData): {
        <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${esc(data.studioAddress)}</td></tr>`
     : ''
 
+  const zoomLine48h = data.zoomLink
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+</tr>
+<tr>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation is online via Zoom. Click below to join at the scheduled time.</td>
+</tr>
+<tr>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+</tr>
+</table>`
+    : ''
+
   const content = `
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Your appointment is tomorrow</h1>
 <p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
@@ -220,6 +255,7 @@ export function reminder48hTemplate(data: BookingEmailData): {
     <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
 ${locationLine}
 </table>
+${zoomLine48h}
 <h2 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#ffffff;">Preparation tips</h2>
 <ul style="margin:0 0 24px;padding-left:20px;font-size:14px;color:#a3a3a3;line-height:1.8;">
 <li>Get a good night&rsquo;s sleep</li>
@@ -255,6 +291,20 @@ export function reminder7dayTemplate(data: BookingEmailData): {
        <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${esc(data.studioAddress)}</td></tr>`
     : ''
 
+  const zoomLine7day = data.zoomLink
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
+<tr>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+</tr>
+<tr>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation is online via Zoom. Save this link to join at the scheduled time.</td>
+</tr>
+<tr>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+</tr>
+</table>`
+    : ''
+
   const content = `
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Your appointment is in one week</h1>
 <p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
@@ -265,6 +315,7 @@ export function reminder7dayTemplate(data: BookingEmailData): {
     <td style="padding:8px 0;color:#ffffff;font-size:14px;text-align:right;">${dateDisplay}${timeDisplay}</td></tr>
 ${locationLine}
 </table>
+${zoomLine7day}
 <p style="margin:0;font-size:14px;color:#a3a3a3;line-height:1.5;">
   Need to cancel or reschedule? Please contact your artist as soon as possible so the slot can be offered to someone else.
 </p>
