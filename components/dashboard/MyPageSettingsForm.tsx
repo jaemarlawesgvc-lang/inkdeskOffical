@@ -403,17 +403,18 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
 
       {/* ── Consultations ── */}
       <Section title="Online Consultations" description="Configure details for video call appointments">
-        <Field label="Personal Zoom Link" id="zoomLink">
+        <Field label="Google Meet Link" id="zoomLink">
           <input
             id="zoomLink"
             type="text"
             value={data.zoomLink}
             onChange={(e) => set('zoomLink', e.target.value)}
             className={inputCls}
-            placeholder="https://zoom.us/j/your-meeting-room"
+            placeholder="https://meet.google.com/abc-defg-hij"
           />
           <p className="text-xs text-white/30 mt-1">
-            Clients will receive this link automatically in their email to join your scheduled consultations.
+            Clients receive this link automatically in their confirmation email to join your online consultation.
+            Get yours free at <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" className="text-gold-400 hover:text-gold-300 underline">meet.google.com</a>.
           </p>
         </Field>
       </Section>

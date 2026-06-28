@@ -619,6 +619,17 @@ export function BookingsTable({ bookings, artistId, plan }: BookingsTableProps) 
                         >
                           {messagingId === booking.id ? 'Opening…' : 'Message'}
                         </button>
+                        <a
+                          href={`/api/dashboard/bookings/${booking.id}/invoice`}
+                          download
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+                            <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v9.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M3 17.25A1.75 1.75 0 014.75 15.5h10.5A1.75 1.75 0 0117 17.25v.75a.75.75 0 01-1.5 0v-.75a.25.25 0 00-.25-.25H4.75a.25.25 0 00-.25.25v.75a.75.75 0 01-1.5 0v-.75z" clipRule="evenodd" />
+                          </svg>
+                          Invoice PDF
+                        </a>
                         {/* Upgrade button - show if booking is a consultation and confirmed/paid */}
                         {booking.booking_type === 'consultation' && (booking.status === 'confirmed' || booking.status === 'deposit_paid') && (
                           <button

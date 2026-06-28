@@ -2,7 +2,6 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
 import { step5Schema, type Step5Values } from '@/lib/validations/onboarding'
 import {
   StepIntro,
@@ -31,21 +30,6 @@ export function Step5Zoom({ defaultValue, onNext, onBack, isSaving }: Step5Props
     },
   })
 
-  // Simulated countdown for the Zoom mockup
-  const [secondsLeft, setSecondsLeft] = useState(1799) // 29:59
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSecondsLeft((s) => (s > 0 ? s - 1 : 1799))
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const formatTimer = (s: number) => {
-    const mins = Math.floor(s / 60)
-    const secs = s % 60
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-  }
-
   const onSubmit = async (values: Step5Values) => {
     await onNext({ zoomLink: values.zoomLink || null })
   }
@@ -54,248 +38,123 @@ export function Step5Zoom({ defaultValue, onNext, onBack, isSaving }: Step5Props
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <StepIntro
         eyebrow="Integrations"
-        title="Set up your Zoom consultations"
+        title="Set up your Google Meet consultations"
         description="Meet clients online face-to-face to discuss design details, sizing, placement, and final pricing before upgrading them to a live booking slot."
       />
 
-      {/* CSS-Animated Zoom Consultation Video Call Mockup */}
-      <div className="relative overflow-hidden rounded-xl border border-white/10 bg-zinc-950 p-4 shadow-inner">
-        {/* Top bar info */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/5 text-[10px] text-white/55">
-          <div className="flex items-center gap-1.5 font-medium">
-            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-            <span>● REC</span>
-            <span className="text-white/30">|</span>
-            <span>Inkquire Secure Consultation</span>
+      {/* Why Google Meet */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
+        <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gold-400" aria-hidden="true">
+            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+          </svg>
+          Why Google Meet?
+        </h3>
+        <ul className="space-y-2 text-sm text-white/60">
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-400 mt-0.5">✓</span>
+            <span><strong className="text-white/80">No download required</strong> — clients join straight from their browser, no app needed</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-400 mt-0.5">✓</span>
+            <span><strong className="text-white/80">Completely free</strong> — unlimited 1-to-1 video calls with a Google account</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-400 mt-0.5">✓</span>
+            <span><strong className="text-white/80">Works on any device</strong> — phone, tablet, laptop</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-400 mt-0.5">✓</span>
+            <span><strong className="text-white/80">Permanent link</strong> — one link you paste once, clients always use the same one</span>
+          </li>
+        </ul>
+      </div>
+
+      {/* How to get your link */}
+      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5 space-y-4">
+        <h3 className="font-semibold text-white text-sm flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gold-400" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          How to get your Google Meet link
+        </h3>
+
+        <ol className="space-y-3 text-sm text-white/60 list-none">
+          <li className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs font-bold flex items-center justify-center">1</span>
+            <span>Go to <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" className="text-gold-400 hover:text-gold-300 underline font-medium">meet.google.com</a> and sign in with your Google account (or create a free one)</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs font-bold flex items-center justify-center">2</span>
+            <span>Click <strong className="text-white/80">&quot;New meeting&quot;</strong> then select <strong className="text-white/80">&quot;Create a meeting for later&quot;</strong></span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs font-bold flex items-center justify-center">3</span>
+            <span>A link like <code className="text-xs bg-white/5 px-1.5 py-0.5 rounded text-blue-400">https://meet.google.com/abc-defg-hij</code> will appear — copy it</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs font-bold flex items-center justify-center">4</span>
+            <span>Paste it in the field below — clients will receive it automatically with every confirmed consultation booking</span>
+          </li>
+        </ol>
+
+        {/* Visual mockup of the Google Meet UI */}
+        <div className="rounded-lg border border-white/10 bg-zinc-950 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-zinc-900">
+            <div className="flex gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/60" />
+            </div>
+            <div className="flex-1 bg-white/5 rounded px-2 py-0.5 text-[10px] text-white/50 font-mono">
+              meet.google.com
+            </div>
           </div>
-          <div className="font-mono text-white/80 font-semibold bg-white/5 px-2 py-0.5 rounded">
-            {formatTimer(secondsLeft)}
+          <div className="p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white">G</div>
+              <span className="text-[11px] font-semibold text-white/80">Google Meet</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="px-3 py-1.5 rounded-full bg-blue-600 text-[10px] font-semibold text-white cursor-default">New meeting</button>
+              <button type="button" className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-white/60 cursor-default">Enter a code</button>
+            </div>
+            <div className="rounded-lg border-2 border-dashed border-gold-500/60 bg-gold-500/5 p-3 relative">
+              <div className="absolute -top-2.5 right-2 bg-gold-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                ← Your link appears here
+              </div>
+              <p className="text-[10px] text-white/40 mb-1">Your meeting link</p>
+              <p className="text-[11px] text-blue-400 font-mono">https://meet.google.com/abc-defg-hij</p>
+            </div>
           </div>
         </div>
 
-        {/* Video feed boxes */}
-        <div className="grid grid-cols-2 gap-3.5 my-4">
-          {/* Client box */}
-          <div className="relative aspect-video rounded-lg bg-zinc-900 border border-white/5 flex flex-col items-center justify-center overflow-hidden">
-            <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-semibold tracking-wider text-white">
-              Client: Jaemar Lawes
-            </div>
-            
-            {/* Animated Profile Avatar */}
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gold-500/10 text-gold-400 border border-gold-500/30">
-              <span className="absolute -inset-2 rounded-full border border-gold-500/20 animate-ping opacity-60" />
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-            </div>
-
-            {/* Speaking audio wave indicators */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-end gap-0.5 h-3">
-              <span className="w-0.5 h-1 bg-gold-500 rounded-full animate-[bounce_0.8s_infinite]" />
-              <span className="w-0.5 h-2 bg-gold-500 rounded-full animate-[bounce_0.6s_infinite_0.1s]" />
-              <span className="w-0.5 h-3 bg-gold-500 rounded-full animate-[bounce_0.7s_infinite_0.2s]" />
-              <span className="w-0.5 h-1.5 bg-gold-500 rounded-full animate-[bounce_0.5s_infinite_0.3s]" />
-            </div>
-          </div>
-
-          {/* Artist box */}
-          <div className="relative aspect-video rounded-lg bg-zinc-900 border border-white/5 flex flex-col items-center justify-center overflow-hidden">
-            <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-semibold tracking-wider text-white">
-              You (Artist)
-            </div>
-
-            {/* Simulated webcam placeholder */}
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-white/50 border border-white/10">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-              </svg>
-            </div>
-            
-            <div className="absolute bottom-2 right-2 text-[8px] text-white/35 font-medium tracking-wide">
-              Webcam Active
-            </div>
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center justify-center gap-4 pt-2.5 border-t border-white/5">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center h-6 w-6 rounded-full bg-white/10 text-white/80 cursor-default">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-              </svg>
-            </span>
-            <span className="flex items-center justify-center h-6 w-6 rounded-full bg-white/10 text-white/80 cursor-default">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            </span>
-            <span className="flex items-center justify-center h-6 w-6 rounded-full bg-white/10 text-white/80 cursor-default">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l6-6m0 0l6 6m-6-6v12m0 3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </span>
-          </div>
-          <span className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-[10px] font-bold text-white tracking-wide uppercase transition-colors select-none cursor-default">
-            Leave Room
-          </span>
+        <div className="flex gap-2">
+          <a
+            href="https://meet.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded bg-gold-500/10 border border-gold-500/20 px-3.5 py-2 text-xs font-semibold text-gold-400 hover:bg-gold-500/20 transition-all"
+          >
+            Open Google Meet ↗
+          </a>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Visual Guide — Annotated Zoom Settings mockup */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5 space-y-4">
-          <h3 className="font-semibold text-white flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gold-400">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-            Where to find your Zoom link
-          </h3>
-
-          {/* Annotated mockup of zoom.us/profile */}
-          <div className="rounded-lg border border-white/10 bg-zinc-950 overflow-hidden">
-            {/* Browser bar */}
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-zinc-900">
-              <div className="flex gap-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
-                <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/60" />
-              </div>
-              <div className="flex-1 bg-white/5 rounded px-2 py-0.5 text-[10px] text-white/50 font-mono">
-                https://zoom.us/profile
-              </div>
-            </div>
-
-            {/* Simulated Zoom profile page */}
-            <div className="p-4 space-y-3">
-              {/* Zoom sidebar + content */}
-              <div className="flex gap-4">
-                {/* Sidebar */}
-                <div className="hidden sm:block w-28 space-y-1.5 border-r border-white/5 pr-3">
-                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-2">Zoom</div>
-                  <div className="text-[10px] text-white/30 py-0.5">Home</div>
-                  <div className="text-[10px] text-white/80 py-0.5 px-1.5 bg-blue-500/10 rounded font-medium">Profile</div>
-                  <div className="text-[10px] text-white/30 py-0.5">Meetings</div>
-                  <div className="text-[10px] text-white/30 py-0.5">Settings</div>
-                </div>
-
-                {/* Main content */}
-                <div className="flex-1 space-y-3">
-                  <div className="text-xs font-semibold text-white/70">Profile</div>
-                  
-                  {/* Fake profile fields */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-white/30 w-20 shrink-0">Display Name</span>
-                      <span className="text-[10px] text-white/60">Your Name</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-white/30 w-20 shrink-0">Email</span>
-                      <span className="text-[10px] text-white/60">you@email.com</span>
-                    </div>
-                    
-                    {/* PMI — THE IMPORTANT ONE */}
-                    <div className="flex items-center gap-2 relative">
-                      <span className="text-[10px] text-white/30 w-20 shrink-0">Personal Meeting ID</span>
-                      <span className="text-[10px] text-blue-400 font-mono underline">123 456 7890</span>
-                    </div>
-
-                    {/* THE TARGET FIELD — highlighted */}
-                    <div className="flex items-start gap-2 relative -mx-1.5 px-1.5 py-1.5 rounded-lg border-2 border-dashed border-gold-500/60 bg-gold-500/5">
-                      <div className="absolute -top-2.5 -right-1 bg-gold-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg uppercase tracking-wider">
-                        ← Copy this link!
-                      </div>
-                      <span className="text-[10px] text-white/30 w-20 shrink-0">Personal Link</span>
-                      <span className="text-[10px] text-blue-400 font-mono underline break-all">https://zoom.us/j/1234567890</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p className="text-[11px] text-white/30 leading-relaxed">
-            Log in at <strong className="text-white/50">zoom.us</strong> → Click <strong className="text-white/50">Profile</strong> on the left sidebar → 
-            Find <strong className="text-gold-400">&quot;Personal Link&quot;</strong> or <strong className="text-gold-400">&quot;Personal Meeting ID&quot;</strong> → Copy the full URL.
-          </p>
-        </div>
-
-        {/* Step-by-step instructions */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5 space-y-3 text-sm">
-          <h3 className="font-semibold text-white">How to set up video consultations for free</h3>
-          <ol className="list-decimal pl-5 space-y-2.5 text-parchment-350 leading-relaxed">
-            <li>
-              Don&apos;t have a Zoom account? Create a free one in under 2 minutes at{' '}
-              <a
-                href="https://zoom.us/signup"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gold-400 hover:text-gold-300 font-medium underline underline-offset-2 transition-colors"
-              >
-                zoom.us/signup
-              </a>.
-            </li>
-            <li>
-              Once signed up, go to{' '}
-              <a
-                href="https://zoom.us/profile"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gold-400 hover:text-gold-300 font-medium underline underline-offset-2 transition-colors"
-              >
-                zoom.us/profile
-              </a>{' '}
-              (or click <strong className="text-white/80">Profile</strong> on the left sidebar).
-            </li>
-            <li>
-              Find the row labelled <strong className="text-gold-400">&quot;Personal Link&quot;</strong>. It looks like: <code className="text-xs bg-white/5 px-1.5 py-0.5 rounded text-blue-400">https://zoom.us/j/1234567890</code>
-            </li>
-            <li>
-              Copy that <strong className="text-white/80">full link</strong> (not just the meeting ID number) and paste it below.
-            </li>
-          </ol>
-
-          {/* Common mistake warning */}
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-300 leading-relaxed">
-            <strong>⚠️ Common mistake:</strong> Don&apos;t paste just the meeting ID number (e.g. <code className="bg-white/5 px-1 rounded">1234567890</code>). 
-            Paste the <strong>full URL</strong> starting with <code className="bg-white/5 px-1 rounded">https://zoom.us/...</code>
-          </div>
-
-          <div className="pt-2 flex justify-start gap-2">
-            <a
-              href="https://zoom.us/signup"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded bg-gold-500/10 border border-gold-500/20 px-3.5 py-2 text-xs font-semibold text-gold-400 hover:bg-gold-500/20 transition-all active:scale-[0.98]"
-            >
-              Open Zoom Signup Page ↗
-            </a>
-            <a
-              href="https://zoom.us/profile"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded bg-white/5 border border-white/10 px-3.5 py-2 text-xs font-semibold text-white/70 hover:bg-white/10 transition-all active:scale-[0.98]"
-            >
-              Go to Zoom Profile ↗
-            </a>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <FieldLabel htmlFor="zoomLink">Personal Zoom Link</FieldLabel>
-          <input
-            id="zoomLink"
-            type="url"
-            {...register('zoomLink')}
-            className={fieldClass}
-            placeholder="e.g. https://zoom.us/j/1234567890"
-            disabled={isSaving}
-          />
-          {errors.zoomLink && <FieldError>{errors.zoomLink.message}</FieldError>}
-          <p className="text-xs text-ink-500 leading-normal">
-            If you leave this empty, clients will contact you manually to set up a consultation link.
-          </p>
-        </div>
+      <div className="space-y-1.5">
+        <FieldLabel htmlFor="zoomLink">Your Google Meet Link</FieldLabel>
+        <input
+          id="zoomLink"
+          type="url"
+          {...register('zoomLink')}
+          className={fieldClass}
+          placeholder="https://meet.google.com/abc-defg-hij"
+          disabled={isSaving}
+        />
+        {errors.zoomLink && <FieldError>{errors.zoomLink.message}</FieldError>}
+        <p className="text-xs text-ink-500 leading-normal">
+          Leave empty if you prefer clients to contact you directly to arrange a call.
+        </p>
       </div>
 
       <WizardNav onBack={onBack} submitLabel="Save & Continue" busy={isSaving} />

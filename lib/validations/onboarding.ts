@@ -206,12 +206,7 @@ export const step5Schema = z.object({
           const url = new URL(val)
           return (
             url.protocol === 'https:' &&
-            (url.hostname === 'zoom.us' ||
-              url.hostname.endsWith('.zoom.us') ||
-              url.hostname === 'us02web.zoom.us' ||
-              url.hostname === 'us04web.zoom.us' ||
-              url.hostname === 'us05web.zoom.us' ||
-              url.hostname === 'us06web.zoom.us')
+            url.hostname === 'meet.google.com'
           )
         } catch {
           return false
@@ -219,7 +214,7 @@ export const step5Schema = z.object({
       },
       {
         message:
-          'Please enter a valid Zoom link (e.g. https://zoom.us/j/1234567890 or https://us02web.zoom.us/j/1234567890)',
+          'Please enter a valid Google Meet link (e.g. https://meet.google.com/abc-defg-hij)',
       },
     )
     .nullable()

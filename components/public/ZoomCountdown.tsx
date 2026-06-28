@@ -93,11 +93,11 @@ export function ZoomCountdown({
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-bold px-6 py-3 transition-colors active:scale-[0.98]"
           >
-            Join Zoom Consultation ↗
+            Join Google Meet ↗
           </a>
         ) : (
           <div className="text-xs text-white/40">
-            No Zoom link was configured by the artist. Please contact the artist directly.
+            No meeting link was configured by the artist. Please contact the artist directly.
           </div>
         )}
       </div>
@@ -107,7 +107,7 @@ export function ZoomCountdown({
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-6 space-y-4 text-center">
       <div className="text-xs font-semibold text-white/50 uppercase tracking-widest">
-        Upcoming Video Consultation
+        Upcoming Online Consultation
       </div>
       
       <div className="flex justify-center items-center gap-4 text-white">
@@ -141,7 +141,7 @@ export function ZoomCountdown({
       </div>
 
       <p className="text-xs text-white/40 leading-relaxed max-w-xs mx-auto">
-        Scheduled for {bookingDate} at {bookingTime.slice(0, 5)}. The Zoom meeting button will become active here when the meeting starts.
+        Scheduled for {bookingDate} at {bookingTime.slice(0, 5)}. The Google Meet button will become active here when the meeting starts.
       </p>
 
       {zoomLink && (
@@ -151,7 +151,7 @@ export function ZoomCountdown({
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-white/10 hover:bg-white/15 text-white/80 text-xs font-semibold px-4 py-2.5 transition-colors"
         >
-          Zoom Link Preview ↗
+          Open Google Meet ↗
         </a>
       )}
     </div>

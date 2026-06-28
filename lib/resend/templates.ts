@@ -121,13 +121,13 @@ export function bookingConfirmationTemplate(data: BookingEmailData): {
   const zoomLine = data.zoomLink
     ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
 <tr>
-  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Google Meet Consultation</td>
 </tr>
 <tr>
-  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation will take place online via Zoom. Click the button below to join the meeting at the scheduled time.</td>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation will take place online via Google Meet. Click the button below to join at the scheduled time.</td>
 </tr>
 <tr>
-  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Google Meet</a></td>
 </tr>
 </table>`
     : ''
@@ -234,13 +234,13 @@ export function reminder48hTemplate(data: BookingEmailData): {
   const zoomLine48h = data.zoomLink
     ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
 <tr>
-  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Google Meet Consultation</td>
 </tr>
 <tr>
-  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation is online via Zoom. Click below to join at the scheduled time.</td>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation is online via Google Meet. Click below to join at the scheduled time.</td>
 </tr>
 <tr>
-  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Google Meet</a></td>
 </tr>
 </table>`
     : ''
@@ -294,13 +294,13 @@ export function reminder7dayTemplate(data: BookingEmailData): {
   const zoomLine7day = data.zoomLink
     ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
 <tr>
-  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Google Meet Consultation</td>
 </tr>
 <tr>
-  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation is online via Zoom. Save this link to join at the scheduled time.</td>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation is online via Google Meet. Save this link to join at the scheduled time.</td>
 </tr>
 <tr>
-  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Google Meet</a></td>
 </tr>
 </table>`
     : ''
@@ -743,13 +743,13 @@ export function bookingRescheduledTemplate(data: BookingEmailData) {
   const zoomLine = data.zoomLink
     ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:24px;">
 <tr>
-  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Zoom Consultation Meeting</td>
+  <td style="color:#ffffff;font-size:14px;font-weight:600;padding-bottom:8px;">Google Meet Consultation</td>
 </tr>
 <tr>
-  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation will take place online via Zoom. Click the button below to join the meeting at the scheduled time.</td>
+  <td style="color:#94a3b8;font-size:13px;padding-bottom:12px;line-height:1.4;">Your consultation will take place online via Google Meet. Click the button below to join at the scheduled time.</td>
 </tr>
 <tr>
-  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Zoom Meeting</a></td>
+  <td><a href="${data.zoomLink}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Join Google Meet</a></td>
 </tr>
 </table>`
     : ''
