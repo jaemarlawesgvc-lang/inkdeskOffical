@@ -71,6 +71,30 @@ function alwaysAllow(pathname: string): boolean {
   return ALWAYS_ALLOW_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
+// ─── Custom-Domain Resolution ───────────────────────────────────────────────────
+//
+// A verified custom domain (custom_domains table) maps a foreign host to an
+// artist's public /[username] page. To keep the app's own traffic free of any
+// extra work, we only attempt a DB lookup when the incoming Host is genuinely
+// "foreign" — i.e. not the app domain, localhost, or a *.vercel.app preview.
+
+function getAppHost(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? '').hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+function isForeignHost(host: string): boolean {
+  if (!host) return false
+  const appHost = getAppHost()
+  if (host === appHost) return false
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '127.0.0.1') return false
+  if (host.endsWith('.vercel.app')) return false
+  return true
+}
+
 // ─── Open-Redirect Guard ───────────────────────────────────────────────────────
 
 function getSafeNext(nextParam: string | null): string {
@@ -115,6 +139,34 @@ export async function middleware(request: NextRequest) {
 
   // Step 2 — Refresh the session.
   const { response, user, supabase } = await updateSupabaseSession(request)
+
+  // Step 2.1 — Custom-domain rewrite (additive; falls through when unmatched).
+  //
+  // For a foreign Host, resolve it against verified custom_domains via a
+  // SECURITY-DEFINER RPC (anon-safe; returns only the mapped username). On a
+  // match, internally rewrite the public page path to /[username] and return.
+  // Everything else — app-domain routing, auth, rate limiting below — is left
+  // completely untouched. API/asset paths pass through so booking endpoints and
+  // Next internals keep working on the custom domain.
+  const host = (request.headers.get('host') ?? '').split(':')[0]?.toLowerCase() ?? ''
+  if (
+    isForeignHost(host) &&
+    !pathname.startsWith('/api') &&
+    !pathname.startsWith('/_next') &&
+    !pathname.startsWith('/monitoring')
+  ) {
+    try {
+      const { data: username } = await supabase.rpc('resolve_custom_domain', { p_host: host })
+      if (typeof username === 'string' && username.length > 0) {
+        const url = request.nextUrl.clone()
+        url.pathname = pathname === '/' ? `/${username}` : `/${username}${pathname}`
+        return withSessionCookies(response, NextResponse.rewrite(url))
+      }
+    } catch (error) {
+      // Fail open — never let domain resolution break the request.
+      console.warn('[Custom Domain] resolution error (Failing Open):', error)
+    }
+  }
 
   // Redirect helper that always carries the refreshed session cookies forward.
   const redirectTo = (to: URL | string) =>

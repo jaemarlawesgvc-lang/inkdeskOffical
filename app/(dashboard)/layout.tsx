@@ -40,8 +40,6 @@ export default async function DashboardLayout({
     .eq('user_id', user.id)
     .maybeSingle()
 
-  console.log('[dashboard/layout] user', user.id, 'artist', artist)
-
   const username = artist?.username ?? ''
   const displayName = artist?.display_name ?? user.email ?? 'Artist'
 

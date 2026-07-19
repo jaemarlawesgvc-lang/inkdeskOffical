@@ -3,8 +3,19 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { callGeminiText } from '@/lib/gemini/client'
+import { redis } from '@/lib/redis/client'
+import { Ratelimit } from '@upstash/ratelimit'
 
 export const runtime = 'nodejs'
+
+// Stricter than the global API limiter: each AI reply costs a Gemini call, so
+// cap per authenticated user to prevent one account running up the bill.
+const supportChatRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(15, '1 m'),
+  analytics: true,
+  prefix: '@upstash/ratelimit/support-chat',
+})
 // Give Gemini room to answer without the serverless function being killed early
 // (a too-short timeout would surface as the chat "not responding").
 export const maxDuration = 30
@@ -82,6 +93,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  }
+
+  // Per-user quota. Fails open if Upstash is unreachable.
+  try {
+    const { success } = await supportChatRateLimit.limit(user.id)
+    if (!success) {
+      return NextResponse.json(
+        { error: 'You are sending messages too quickly. Please wait a moment.' },
+        { status: 429 },
+      )
+    }
+  } catch (err) {
+    console.warn('[api/support/chat] rate limit check failed (failing open):', err)
   }
 
   let body: unknown

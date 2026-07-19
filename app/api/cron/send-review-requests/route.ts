@@ -20,9 +20,13 @@ async function handler(request: NextRequest): Promise<NextResponse> {
 
   const supabase = createSupabaseAdminClient()
 
-  const yesterday = new Date()
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1)
-  const yesterdayDate = yesterday.toISOString().slice(0, 10)
+  // Fire on bookings COMPLETED within the last ~25h, not on booking_date.
+  // There is no completed_at column; a booking is marked 'completed' via an
+  // UPDATE, which bumps updated_at (set_bookings_updated_at trigger), so
+  // updated_at is the most correct "recently completed" signal available. This
+  // catches bookings completed on a day other than their scheduled date. The
+  // reviews-row check + email_logs idempotency keep re-runs safe.
+  const completedSince = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
 
   const { data: bookings, error } = await supabase
     .from('bookings')
@@ -40,7 +44,9 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     `,
     )
     .eq('status', 'completed')
-    .eq('booking_date', yesterdayDate)
+    // Only real tattoo sessions get review requests — not video consultations.
+    .eq('booking_type', 'live')
+    .gte('updated_at', completedSince)
     .is('deleted_at', null)
 
   if (error) {

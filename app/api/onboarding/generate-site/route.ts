@@ -8,6 +8,7 @@ import {
   GeminiInvalidResponseError,
   type SiteData,
 } from '@/lib/gemini/client'
+import { resolveActivePlan, checkMeteredFeature } from '@/lib/stripe/plans'
 
 // Re-export SiteData so Step5GenerateSite.tsx import remains valid
 export type { SiteData }
@@ -46,6 +47,49 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { error: 'Complete all previous onboarding steps first' },
       { status: 422 },
+    )
+  }
+
+  // ── Plan enforcement ──
+  // Meter this generation exactly like /api/generate-site so onboarding can't
+  // be spammed for unlimited free Gemini calls. Free plan allows 1/month, so
+  // the expected first onboarding generation is still permitted.
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('plan, status')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const plan = resolveActivePlan(subscription)
+
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+
+  const { count: generationsThisMonth } = await supabase
+    .from('audit_logs')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('action', 'ai_generation')
+    .gte('created_at', monthStart.toISOString())
+
+  const usageCheck = checkMeteredFeature(
+    plan,
+    'ai_generation',
+    generationsThisMonth ?? 0,
+  )
+
+  if (!usageCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: usageCheck.reason,
+        currentPlan: usageCheck.currentPlan,
+        requiredPlan: usageCheck.requiredPlan,
+        upgradeUrl: usageCheck.upgradeUrl,
+        currentUsage: usageCheck.currentUsage,
+        limit: usageCheck.limit,
+      },
+      { status: 403 },
     )
   }
 
@@ -139,6 +183,20 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
       )
     }
   }
+
+  // Log the generation to audit_logs for metered tracking (same as
+  // /api/generate-site) so repeated onboarding calls count against the plan.
+  await db.from('audit_logs').insert({
+    user_id: user.id,
+    action: 'ai_generation',
+    resource_type: 'artist',
+    resource_id: artist.id,
+    metadata: {
+      plan,
+      generationNumber: (generationsThisMonth ?? 0) + 1,
+      source: 'onboarding',
+    },
+  })
 
   return NextResponse.json({ ok: true, siteData })
 }

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { data: review, error } = await supabase
     .from('reviews')
-    .select('id, token_used, token_expires_at')
+    .select('id, booking_id, token_used, token_expires_at')
     .eq('token', token)
     .maybeSingle()
 
@@ -49,6 +49,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   let photoUrl: string | null = null
   if (photoStoragePath) {
+    // The upload endpoint namespaces photos under `${booking_id}/…`. Reject any
+    // path not prefixed with this review's booking_id so an attacker can't point
+    // the public photo_url at an arbitrary object in the bucket.
+    if (!photoStoragePath.startsWith(`${review.booking_id}/`)) {
+      return NextResponse.json({ error: 'Invalid photo path' }, { status: 422 })
+    }
     const { data: urlData } = supabase.storage.from('review-photos').getPublicUrl(photoStoragePath)
     photoUrl = urlData.publicUrl
   }

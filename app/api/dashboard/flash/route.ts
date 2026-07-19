@@ -10,7 +10,7 @@ const flashSchema = z.object({
   imagePath: z.string().url('Invalid image URL'),
 })
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(_request: NextRequest): Promise<NextResponse> {
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 

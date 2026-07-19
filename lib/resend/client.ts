@@ -35,6 +35,7 @@ export type EmailType =
   | 'cancellation_opening'
   | 'new_message_notification'
   | 'consent_form_submitted'
+  | 'healed_photo_request'
 
 export interface SendEmailParams {
   to: string
@@ -68,18 +69,38 @@ const BASE_DELAY_MS = 1000
 export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
   const { to, subject, html, emailType, bookingId, userId, supabase } = params
 
-  // ── Duplicate check ──
+  // ── Reserve the idempotency slot BEFORE sending ──
+  // Insert the 'sent' row first and let the partial unique index
+  // (booking_id, email_type) WHERE status = 'sent' arbitrate: a duplicate insert
+  // fails with 23505, closing the check-then-send race where two concurrent
+  // callers both passed the old SELECT and both sent. If the insert wins we hold
+  // reservedLogId and are the sole sender.
+  let reservedLogId: string | null = null
   if (bookingId) {
-    const { data: existing } = await supabase
+    const { data: reserved, error: reserveError } = await supabase
       .from('email_logs')
+      .insert({
+        booking_id: bookingId,
+        user_id: userId,
+        email_type: emailType,
+        recipient_email: to,
+        resend_message_id: null,
+        status: 'sent',
+        error: null,
+      })
       .select('id')
-      .eq('booking_id', bookingId)
-      .eq('email_type', emailType)
-      .eq('status', 'sent')
-      .maybeSingle()
+      .single()
 
-    if (existing) {
-      return { success: true, messageId: null, error: null, skipped: true }
+    if (reserveError) {
+      // 23505 = unique_violation → this email is already reserved/sent. Skip.
+      if ((reserveError as { code?: string }).code === '23505') {
+        return { success: true, messageId: null, error: null, skipped: true }
+      }
+      // Any other insert failure: don't drop the email — fall through to send
+      // and log via the legacy path (reservedLogId stays null).
+      console.error('[resend] idempotency reservation failed:', reserveError.message)
+    } else {
+      reservedLogId = reserved?.id ?? null
     }
   }
 
@@ -107,16 +128,25 @@ export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
 
       const messageId = data?.id ?? null
 
-      // ── Log success ──
-      await logEmail(supabase, {
-        bookingId,
-        userId,
-        emailType,
-        recipientEmail: to,
-        resendMessageId: messageId,
-        status: 'sent',
-        error: null,
-      })
+      // ── Record success ──
+      if (reservedLogId) {
+        // Attach the Resend message id to the reservation we already inserted.
+        await supabase
+          .from('email_logs')
+          .update({ resend_message_id: messageId })
+          .eq('id', reservedLogId)
+      } else {
+        // No reservation (no bookingId, or reservation insert errored) — log now.
+        await logEmail(supabase, {
+          bookingId,
+          userId,
+          emailType,
+          recipientEmail: to,
+          resendMessageId: messageId,
+          status: 'sent',
+          error: null,
+        })
+      }
 
       return { success: true, messageId, error: null, skipped: false }
     } catch (err) {
@@ -128,16 +158,25 @@ export async function sendEmail(params: SendEmailParams): Promise<SendResult> {
     }
   }
 
-  // ── All retries exhausted — log failure ──
-  await logEmail(supabase, {
-    bookingId,
-    userId,
-    emailType,
-    recipientEmail: to,
-    resendMessageId: null,
-    status: 'failed',
-    error: lastError,
-  })
+  // ── All retries exhausted — record failure ──
+  if (reservedLogId) {
+    // Downgrade the reservation to 'failed' so it leaves the partial unique
+    // index and a later retry can reserve + send again.
+    await supabase
+      .from('email_logs')
+      .update({ status: 'failed', error: lastError })
+      .eq('id', reservedLogId)
+  } else {
+    await logEmail(supabase, {
+      bookingId,
+      userId,
+      emailType,
+      recipientEmail: to,
+      resendMessageId: null,
+      status: 'failed',
+      error: lastError,
+    })
+  }
 
   console.error(
     `[resend] Failed to send ${emailType} to ${to} after ${MAX_RETRIES} attempts: ${lastError}`,

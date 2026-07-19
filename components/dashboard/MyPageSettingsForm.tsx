@@ -32,6 +32,7 @@ interface MyPageData {
   colorScheme: { primary: string; secondary: string; accent: string }
   backgroundImageUrl: string
   zoomLink: string
+  googleReviewUrl: string
 }
 
 interface MyPageSettingsFormProps {
@@ -415,6 +416,23 @@ export function MyPageSettingsForm({ artistId, initialData }: MyPageSettingsForm
           <p className="text-xs text-white/30 mt-1">
             Clients receive this link automatically in their confirmation email to join your online consultation.
             Get yours free at <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" className="text-gold-400 hover:text-gold-300 underline">meet.google.com</a>.
+          </p>
+        </Field>
+      </Section>
+
+      {/* ── Reviews ── */}
+      <Section title="Reviews" description="Send happy clients to your Google Business profile">
+        <Field label="Google Review Link" id="googleReviewUrl">
+          <input
+            id="googleReviewUrl"
+            type="text"
+            value={data.googleReviewUrl}
+            onChange={(e) => set('googleReviewUrl', e.target.value)}
+            className={inputCls}
+            placeholder="https://g.page/r/…/review"
+          />
+          <p className="text-xs text-white/30 mt-1">
+            When set, clients who submit a review — and your review-request emails — get a prompt to also review you on Google, where new clients discover you.
           </p>
         </Field>
       </Section>

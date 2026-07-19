@@ -196,8 +196,13 @@ export const BOOKING_STATUS = {
 
 export type BookingStatus = (typeof BOOKING_STATUS)[keyof typeof BOOKING_STATUS]
 
-/** Statuses that occupy a slot in the exclusion constraint. */
+/**
+ * Statuses that occupy a slot in the exclusion constraint.
+ * 'pending' is included: public bookings start pending, and migration 021 widens
+ * the DB exclusion constraint to match — so a pending booking holds its slot.
+ */
 export const SLOT_OCCUPYING_STATUSES: BookingStatus[] = [
+  BOOKING_STATUS.PENDING,
   BOOKING_STATUS.CONFIRMED,
   BOOKING_STATUS.DEPOSIT_PAID,
 ]

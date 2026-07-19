@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { isSlotAvailable } from '@/lib/booking/availability'
 import { loadBookingWithArtist, sendBookingRescheduled } from '@/lib/resend/send'
+import { fromZonedTime } from 'date-fns-tz'
 import { z } from 'zod'
+
+// Bookings that may still be rescheduled — cancelled/completed/no_show cannot.
+const RESCHEDULABLE_STATUSES = ['pending', 'confirmed', 'deposit_paid']
 
 const rescheduleSchema = z.object({
   bookingId: z.string().uuid(),
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Client-side reschedule via token
     const { data: booking, error: bookingErr } = await adminDb
       .from('bookings')
-      .select('id, artist_id, access_token, booking_date, booking_time')
+      .select('id, artist_id, access_token, booking_date, booking_time, status, deleted_at')
       .eq('id', bookingId)
       .single()
 
@@ -53,11 +57,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Invalid access token' }, { status: 403 })
     }
 
-    // POLICY CHECK: Enforce 48h rescheduling lockout for clients
+    // Only active, non-deleted bookings can be rescheduled.
+    if (booking.deleted_at || !RESCHEDULABLE_STATUSES.includes(booking.status)) {
+      return NextResponse.json(
+        { error: 'This booking can no longer be rescheduled.' },
+        { status: 409 },
+      )
+    }
+
+    // POLICY CHECK: Enforce 48h rescheduling lockout for clients.
+    // booking_time is stored in the artist's LOCAL timezone, so interpret the
+    // wall-clock appointment in that zone (fromZonedTime → UTC) before diffing.
     if (booking.booking_date && booking.booking_time) {
+      const { data: artistTz } = await adminDb
+        .from('artists')
+        .select('timezone')
+        .eq('id', booking.artist_id)
+        .single()
+      const timezone = artistTz?.timezone ?? 'Europe/London'
+
       const apptDateStr = `${booking.booking_date}T${booking.booking_time.slice(0, 5)}:00`
-      const apptTime = new Date(apptDateStr).getTime()
-      const now = new Date().getTime()
+      const apptTime = fromZonedTime(apptDateStr, timezone).getTime()
+      const now = Date.now()
       const hoursDiff = (apptTime - now) / (1000 * 60 * 60)
 
       if (hoursDiff < 48) {
@@ -89,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Verify booking belongs to this artist
     const { data: booking, error: bookingErr } = await adminDb
       .from('bookings')
-      .select('id, artist_id')
+      .select('id, artist_id, status, deleted_at')
       .eq('id', bookingId)
       .single()
 
@@ -99,6 +120,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (booking.artist_id !== artist.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Only active, non-deleted bookings can be rescheduled.
+    if (booking.deleted_at || !RESCHEDULABLE_STATUSES.includes(booking.status)) {
+      return NextResponse.json(
+        { error: 'This booking can no longer be rescheduled.' },
+        { status: 409 },
+      )
     }
 
     artistId = artist.id

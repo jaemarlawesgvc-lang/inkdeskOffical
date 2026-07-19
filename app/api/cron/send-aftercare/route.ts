@@ -29,6 +29,9 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     .from('bookings')
     .select('id')
     .in('status', ['confirmed', 'deposit_paid'])
+    // Only real tattoo sessions get aftercare — 30-min video consultations
+    // ('consultation') must not receive tattoo aftercare emails.
+    .eq('booking_type', 'live')
     .eq('booking_date', yesterdayDate)
     .is('deleted_at', null)
 

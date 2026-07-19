@@ -11,6 +11,7 @@
  * RLS bypassed) and the raw Stripe event object.
  */
 
+import { randomBytes } from 'crypto'
 import type Stripe from 'stripe'
 import { getStripe, priceIdToPlan } from '@/lib/stripe/server'
 import {
@@ -64,6 +65,10 @@ export async function processStripeEvent(
 
     case 'payment_intent.payment_failed':
       await handlePaymentIntentFailed(supabase, event)
+      break
+
+    case 'account.updated':
+      await handleAccountUpdated(supabase, event)
       break
 
     default:
@@ -172,10 +177,17 @@ async function handleSubscriptionUpdated(
 
   const fields = extractSubscriptionFields(sub)
 
+  // Upsert (not update) so an out-of-order subscription.updated that arrives
+  // before subscription.created still creates the row instead of no-op'ing.
   const { error } = await supabase
     .from('subscriptions')
-    .update(fields)
-    .eq('user_id', userId)
+    .upsert(
+      {
+        user_id: userId,
+        ...fields,
+      },
+      { onConflict: 'user_id' },
+    )
 
   if (error) {
     throw new Error(`Failed to update subscription: ${error.message}`)
@@ -277,6 +289,22 @@ async function handlePaymentIntentSucceeded(
 ): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent
   const metadata = paymentIntent.metadata
+
+  // New payment kinds carry metadata.kind (balance / tip / giftcard). Route
+  // them to their own handlers before the legacy deposit path (type:'deposit').
+  switch (metadata.kind) {
+    case 'balance':
+      await handleBalanceSucceeded(supabase, paymentIntent)
+      return
+    case 'tip':
+      await handleTipSucceeded(supabase, paymentIntent)
+      return
+    case 'giftcard':
+      await handleGiftCardSucceeded(supabase, paymentIntent)
+      return
+    default:
+      break
+  }
 
   if (metadata.type !== 'deposit') return
 
@@ -434,6 +462,157 @@ async function handlePaymentIntentSucceeded(
   }
 }
 
+// ── payment_intent.succeeded → balance (kind:'balance') ────────────────────
+
+async function handleBalanceSucceeded(
+  supabase: AdminClient,
+  paymentIntent: Stripe.PaymentIntent,
+): Promise<void> {
+  const bookingId = paymentIntent.metadata.booking_id
+  if (!bookingId) {
+    throw new Error('Balance PaymentIntent missing booking_id metadata')
+  }
+
+  const { data: booking, error: bookingError } = await supabase
+    .from('bookings')
+    .select('id, balance_paid')
+    .eq('id', bookingId)
+    .single()
+
+  if (bookingError || !booking) {
+    throw new Error(`Booking ${bookingId} not found for balance payment`)
+  }
+
+  // Idempotency: skip if already recorded.
+  if (booking.balance_paid) return
+
+  const { error } = await supabase
+    .from('bookings')
+    .update({
+      balance_paid: true,
+      balance_payment_intent_id: paymentIntent.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', bookingId)
+
+  if (error) {
+    throw new Error(`Failed to mark balance paid for booking ${bookingId}: ${error.message}`)
+  }
+}
+
+// ── payment_intent.succeeded → tip (kind:'tip') ────────────────────────────
+
+async function handleTipSucceeded(
+  supabase: AdminClient,
+  paymentIntent: Stripe.PaymentIntent,
+): Promise<void> {
+  const artistId = paymentIntent.metadata.artist_id
+  if (!artistId) {
+    throw new Error('Tip PaymentIntent missing artist_id metadata')
+  }
+
+  const bookingId = paymentIntent.metadata.booking_id
+  const clientName = paymentIntent.metadata.client_name
+
+  // Idempotency: the unique index on stripe_payment_intent_id makes a repeat
+  // delivery a no-op, but check first to avoid a noisy conflict error.
+  const { data: existing } = await supabase
+    .from('tips')
+    .select('id')
+    .eq('stripe_payment_intent_id', paymentIntent.id)
+    .maybeSingle()
+
+  if (existing) return
+
+  const { error } = await supabase.from('tips').insert({
+    artist_id: artistId,
+    booking_id: bookingId && bookingId.length > 0 ? bookingId : null,
+    amount_pence: paymentIntent.amount,
+    stripe_payment_intent_id: paymentIntent.id,
+    client_name: clientName && clientName.length > 0 ? clientName : null,
+  })
+
+  if (error) {
+    // Unique-violation from a concurrent delivery is benign.
+    if (error.code === '23505') return
+    throw new Error(`Failed to record tip for artist ${artistId}: ${error.message}`)
+  }
+}
+
+// ── payment_intent.succeeded → gift card (kind:'giftcard') ─────────────────
+
+/** Human-friendly, unambiguous gift-card code, e.g. GIFT-4KPT-9WXM-2Q7N. */
+function generateGiftCardCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I/O/0/1
+  const bytes = randomBytes(12)
+  let out = ''
+  for (let i = 0; i < 12; i++) {
+    const byte = bytes[i] ?? 0
+    out += alphabet[byte % alphabet.length]
+    if (i === 3 || i === 7) out += '-'
+  }
+  return `GIFT-${out}`
+}
+
+async function handleGiftCardSucceeded(
+  supabase: AdminClient,
+  paymentIntent: Stripe.PaymentIntent,
+): Promise<void> {
+  const artistId = paymentIntent.metadata.artist_id
+  if (!artistId) {
+    throw new Error('Gift card PaymentIntent missing artist_id metadata')
+  }
+
+  const purchaserEmail = paymentIntent.metadata.purchaser_email || null
+  const recipientEmail = paymentIntent.metadata.recipient_email
+  const amountPence = paymentIntent.amount
+
+  // Idempotency: one gift card per PaymentIntent.
+  const { data: existing } = await supabase
+    .from('gift_cards')
+    .select('id')
+    .eq('stripe_payment_intent_id', paymentIntent.id)
+    .maybeSingle()
+
+  if (existing) return
+
+  // Generate a unique code, retrying on the rare UNIQUE collision.
+  const MAX_ATTEMPTS = 5
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const code = generateGiftCardCode()
+
+    const { error } = await supabase.from('gift_cards').insert({
+      artist_id: artistId,
+      code,
+      initial_amount_pence: amountPence,
+      remaining_amount_pence: amountPence,
+      purchaser_email: purchaserEmail,
+      recipient_email: recipientEmail && recipientEmail.length > 0 ? recipientEmail : null,
+      status: 'active',
+      stripe_payment_intent_id: paymentIntent.id,
+    })
+
+    if (!error) return
+
+    // 23505 = unique_violation. If it collided on stripe_payment_intent_id a
+    // concurrent delivery already created the card — done. Otherwise it was the
+    // code; regenerate and retry.
+    if (error.code === '23505') {
+      const { data: nowExists } = await supabase
+        .from('gift_cards')
+        .select('id')
+        .eq('stripe_payment_intent_id', paymentIntent.id)
+        .maybeSingle()
+      if (nowExists) return
+      continue
+    }
+
+    throw new Error(`Failed to create gift card for artist ${artistId}: ${error.message}`)
+  }
+
+  throw new Error('Failed to generate a unique gift card code after multiple attempts')
+}
+
 // ── payment_intent.payment_failed ──────────────────────────────────────────
 
 async function handlePaymentIntentFailed(
@@ -465,5 +644,33 @@ async function handlePaymentIntentFailed(
     await sendArtistNotification(supabase, failedBookingData).catch((emailErr) => {
       console.error('[stripe-webhook] payment failure notification failed:', emailErr instanceof Error ? emailErr.message : emailErr)
     })
+  }
+}
+
+// ── account.updated (Stripe Connect onboarding progress) ───────────────────
+
+async function handleAccountUpdated(
+  supabase: AdminClient,
+  event: Stripe.Event,
+): Promise<void> {
+  const account = event.data.object as Stripe.Account
+
+  // connect-onboarding seeds the status as 'pending'; nothing advances it
+  // until Stripe reports the account can take charges. Mirror the value the
+  // dashboard UI reads ('verified' = fully connected, otherwise 'pending').
+  const status = account.charges_enabled ? 'verified' : 'pending'
+
+  const { error } = await supabase
+    .from('artists')
+    .update({
+      stripe_connect_status: status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('stripe_connect_account_id', account.id)
+
+  if (error) {
+    throw new Error(
+      `Failed to sync Connect status for account ${account.id}: ${error.message}`,
+    )
   }
 }

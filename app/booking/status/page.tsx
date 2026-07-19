@@ -156,7 +156,7 @@ function BookingStatusContent() {
     if (!booking || paymentSuccess) return
     const requiresPayment =
       booking.status === 'pending' &&
-      !booking.deposit_paid &&
+      !booking.depositPaid &&
       booking.depositAmount !== null &&
       booking.depositAmount > 0
 

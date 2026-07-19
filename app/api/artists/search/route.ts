@@ -24,7 +24,15 @@ interface ArtistSearchRow {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
-    const query = searchParams.get('q')?.toLowerCase() ?? ''
+    // Strip PostgREST/LIKE metacharacters (, . : ( ) * % \) from the raw term.
+    // These are interpolated straight into the .or() filter string below, so
+    // leaving them in would let a crafted `q` inject extra filter conditions or
+    // wildcards (M5 PostgREST filter injection). Stripping keeps normal
+    // word/space searches working while neutralising the operators.
+    const query = (searchParams.get('q')?.toLowerCase() ?? '')
+      .replace(/[,.:()*%\\]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
     const style = searchParams.get('style') ?? ''
     const priceTier = searchParams.get('priceTier') ?? ''
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '24', 10), 50)

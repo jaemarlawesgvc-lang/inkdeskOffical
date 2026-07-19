@@ -6,7 +6,7 @@ import {
   PLAN_LIMITS,
   type Plan,
   type PlanLimits,
-} from '@/lib/constants'
+} from '@/lib/stripe/plans'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
@@ -44,12 +44,10 @@ const COMPARISON_ROWS: ComparisonRow[] = [
   // Booking
   { category: 'Booking',   label: 'Bookings per month',               key: 'bookingsPerMonth'      },
   { category: 'Booking',   label: 'Stripe deposit collection',        key: 'stripeDeposits'        },
-  { category: 'Booking',   label: 'Stripe Connect payout account',    key: 'stripeConnect'         },
   // Automation
   { category: 'Automation',label: 'Email automations (reminders, aftercare)', key: 'emailAutomations' },
   // Clients
-  { category: 'Clients',   label: 'Full client notes',                key: 'clientNotesLevel'      },
-  { category: 'Clients',   label: 'CSV export of clients & bookings', key: 'csvExport'             },
+  { category: 'Clients',   label: 'Full client notes',                key: 'clientNotes'           },
   // Platform
   { category: 'Platform',  label: 'Custom domain',                    key: 'customDomain'          },
   { category: 'Platform',  label: 'Analytics dashboard',              key: 'analytics'             },
@@ -142,7 +140,6 @@ export default function PricingPage() {
                     <span className="text-4xl font-bold text-parchment-100">
                       {display.price}
                     </span>
-                    <span className="text-sm text-ink-400">/{display.interval}</span>
                   </div>
 
                   <Link

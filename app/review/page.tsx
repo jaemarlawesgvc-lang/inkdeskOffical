@@ -20,7 +20,7 @@ async function loadReviewContext(token: string) {
       `
       token_used,
       token_expires_at,
-      artists ( display_name, username )
+      artists ( display_name, username, google_review_url )
     `,
     )
     .eq('token', token)
@@ -28,12 +28,17 @@ async function loadReviewContext(token: string) {
 
   if (!review) return null
 
-  const artist = review.artists as unknown as { display_name: string | null; username: string } | null
+  const artist = review.artists as unknown as {
+    display_name: string | null
+    username: string
+    google_review_url: string | null
+  } | null
 
   return {
     used: review.token_used,
     expired: new Date(review.token_expires_at) < new Date(),
     artistName: artist?.display_name ?? artist?.username ?? 'your artist',
+    googleReviewUrl: artist?.google_review_url ?? null,
   }
 }
 
@@ -62,7 +67,7 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
             This review link has expired.
           </p>
         ) : (
-          <ReviewForm token={token} artistName={context.artistName} />
+          <ReviewForm token={token} artistName={context.artistName} googleReviewUrl={context.googleReviewUrl} />
         )}
       </div>
     </div>

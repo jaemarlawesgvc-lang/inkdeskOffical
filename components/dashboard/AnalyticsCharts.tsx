@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts'
+import dynamic from 'next/dynamic'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -15,6 +13,11 @@ interface AnalyticsData {
   topClients: { name: string; total: number; bookings: number }[]
   upcomingThisMonth: number
   totalBookings: number
+  cancellationRate: number
+  repeatClientRate: number
+  totalClients: number
+  funnel: { pageViews: number; bookingStarted: number; bookingCompleted: number }
+  topServices: { name: string; count: number }[]
 }
 
 function formatMonth(m: string) {
@@ -33,6 +36,147 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     </div>
   )
 }
+
+function ChartsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-5">
+          <div className="h-4 w-32 rounded bg-white/10 mb-4 animate-pulse" />
+          <div className="h-[250px] rounded bg-white/[0.03] animate-pulse" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// recharts is heavy, so it is lazy-loaded into its own chunk (ssr:false) rather
+// than shipped in the main dashboard bundle. The chart components are defined
+// inside the dynamic factory so recharts' child-type detection still sees the
+// real recharts components (not dynamic wrappers).
+const ChartsGrid = dynamic(
+  () =>
+    import('recharts').then((recharts) => {
+      const {
+        BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+      } = recharts
+
+      const tooltipStyle = {
+        contentStyle: { backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '13px' },
+        labelStyle: { color: '#a3a3a3' },
+      }
+
+      function Charts({ data }: { data: AnalyticsData }) {
+        const funnelData = [
+          { stage: 'Page views', value: data.funnel.pageViews },
+          { stage: 'Started', value: data.funnel.bookingStarted },
+          { stage: 'Completed', value: data.funnel.bookingCompleted },
+        ]
+        const hasFunnel = funnelData.some((d) => d.value > 0)
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-4">Monthly Revenue</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={data.revenueChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fill: '#737373', fontSize: 12 }} />
+                  <YAxis tick={{ fill: '#737373', fontSize: 12 }} tickFormatter={(v) => `£${v}`} />
+                  <Tooltip {...tooltipStyle} formatter={(v: any) => [`£${Number(v).toFixed(2)}`, 'Revenue']} labelFormatter={(m: any) => formatMonth(String(m))} />
+                  <Bar dataKey="revenue" fill="#d4af37" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-4">Booking Conversion Rate</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={data.conversionChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fill: '#737373', fontSize: 12 }} />
+                  <YAxis tick={{ fill: '#737373', fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip {...tooltipStyle} formatter={(v: any) => [`${v}%`, 'Conversion']} labelFormatter={(m: any) => formatMonth(String(m))} />
+                  <Line type="monotone" dataKey="rate" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-4">No-Show Rate</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={data.noShowChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fill: '#737373', fontSize: 12 }} />
+                  <YAxis tick={{ fill: '#737373', fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip {...tooltipStyle} formatter={(v: any) => [`${v}%`, 'No-Show']} labelFormatter={(m: any) => formatMonth(String(m))} />
+                  <Line type="monotone" dataKey="rate" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-4">Top Clients</h3>
+              {data.topClients.length === 0 ? (
+                <p className="text-white/40 text-sm">No client data yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {data.topClients.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-white">{c.name}</p>
+                        <p className="text-xs text-white/40">{c.bookings} booking{c.bookings !== 1 ? 's' : ''}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-white">£{c.total.toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-white mb-4">Booking Funnel</h3>
+              {hasFunnel ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={funnelData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="stage" tick={{ fill: '#737373', fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tick={{ fill: '#737373', fontSize: 12 }} />
+                    <Tooltip {...tooltipStyle} formatter={(v: any) => [String(v), 'Count']} />
+                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center">
+                  <p className="text-white/40 text-sm text-center max-w-xs">
+                    No funnel data yet. Page views and booking events appear here once tracking is active.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {data.topServices.length > 0 && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-white mb-4">Top Services</h3>
+                <div className="space-y-3">
+                  {data.topServices.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <p className="text-sm text-white">{s.name}</p>
+                      <p className="text-sm font-semibold text-white/70">
+                        {s.count} booking{s.count !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      return Charts
+    }),
+  { ssr: false, loading: () => <ChartsSkeleton /> },
+)
 
 export function AnalyticsCharts() {
   const [data, setData] = useState<AnalyticsData | null>(null)
@@ -89,14 +233,9 @@ export function AnalyticsCharts() {
     return <p className="text-red-400 text-sm">{error ?? 'Failed to load analytics'}</p>
   }
 
-  const tooltipStyle = {
-    contentStyle: { backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '13px' },
-    labelStyle: { color: '#a3a3a3' },
-  }
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard label="Total Bookings" value={data.totalBookings} />
         <StatCard label="Upcoming This Month" value={data.upcomingThisMonth} />
         <StatCard label="Average Tattoo Value" value={`£${data.avgValue.toFixed(2)}`} />
@@ -108,67 +247,11 @@ export function AnalyticsCharts() {
               : '0%'
           }
         />
+        <StatCard label="Cancellation Rate" value={`${data.cancellationRate}%`} />
+        <StatCard label="Repeat-Client Rate" value={`${data.repeatClientRate}%`} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Monthly Revenue</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data.revenueChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fill: '#737373', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#737373', fontSize: 12 }} tickFormatter={(v) => `£${v}`} />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => [`£${Number(v).toFixed(2)}`, 'Revenue']} labelFormatter={(m: any) => formatMonth(String(m))} />
-              <Bar dataKey="revenue" fill="#d4af37" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Booking Conversion Rate</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={data.conversionChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fill: '#737373', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#737373', fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => [`${v}%`, 'Conversion']} labelFormatter={(m: any) => formatMonth(String(m))} />
-              <Line type="monotone" dataKey="rate" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">No-Show Rate</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={data.noShowChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fill: '#737373', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#737373', fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => [`${v}%`, 'No-Show']} labelFormatter={(m: any) => formatMonth(String(m))} />
-              <Line type="monotone" dataKey="rate" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Top Clients</h3>
-          {data.topClients.length === 0 ? (
-            <p className="text-white/40 text-sm">No client data yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {data.topClients.map((c, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-white">{c.name}</p>
-                    <p className="text-xs text-white/40">{c.bookings} booking{c.bookings !== 1 ? 's' : ''}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-white">£{c.total.toFixed(2)}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <ChartsGrid data={data} />
     </div>
   )
 }

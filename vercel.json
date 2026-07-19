@@ -20,6 +20,14 @@
     {
       "path": "/api/cron/cleanup-orphans",
       "schedule": "0 2 * * 0"
+    },
+    {
+      "path": "/api/cron/auto-forfeit",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/healed-photo-request",
+      "schedule": "0 14 * * *"
     }
   ],
   "regions": ["lhr1"],

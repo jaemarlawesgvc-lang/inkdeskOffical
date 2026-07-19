@@ -55,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Waitlist entry not found' }, { status: 404 })
   }
 
-  const artistProfile = artist.profiles as { email: string } | null
+  const artistProfile = artist.profiles as unknown as { email: string } | null
   const openingDate = entry.preferred_date_from ?? new Date().toISOString().slice(0, 10)
 
   await sendCancellationOpening(supabase, {

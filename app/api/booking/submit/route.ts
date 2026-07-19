@@ -214,15 +214,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
   }
 
-  // If a flash design was chosen, mark it as booked to prevent others from booking it
+  // If a flash design was chosen, atomically claim it: only flip 'available' →
+  // 'booked'. If no row was affected the flash was already taken (oversold race),
+  // so roll back the just-created booking and reject. Nothing references the
+  // booking yet (client upsert + emails happen below), so a hard delete is safe.
   if (flashDesignId) {
-    const { error: flashError } = await supabase
+    const { data: claimedFlash, error: flashError } = await supabase
       .from('flash_designs')
       .update({ status: 'booked' })
       .eq('id', flashDesignId)
+      .eq('status', 'available')
+      .select('id')
 
     if (flashError) {
       console.error('[submit-booking] failed to update flash design status:', flashError.message)
+    } else if (!claimedFlash || claimedFlash.length === 0) {
+      await supabase.from('bookings').delete().eq('id', booking.id)
+      return NextResponse.json(
+        { error: 'This flash design has just been booked by someone else.' },
+        { status: 409 },
+      )
     }
   }
 
@@ -294,14 +305,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     depositAmount: depositActive ? artist.deposit_amount : null,
   }
 
-  // Hold is kept alive for deposit path — the webhook will delete it on confirmation.
-  // For manual (no-deposit) path, delete the hold now since it's no longer needed.
-  if (!depositActive) {
-    await supabase
-      .from('booking_holds')
-      .delete()
-      .eq('id', holdId)
-  }
+  // The hold is intentionally NOT deleted here. The just-created 'pending' booking
+  // now occupies the slot (SLOT_OCCUPYING_STATUSES + the widened exclusion
+  // constraint), and leaving the hold in place keeps the slot reserved with no
+  // gap until it expires naturally (15 min) or is cleared on confirmation. Deleting
+  // it early re-opened a brief double-booking window on the no-deposit path.
 
   return NextResponse.json(response, { status: 201 })
 }

@@ -3,8 +3,19 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { callGeminiText } from '@/lib/gemini/client'
+import { redis } from '@/lib/redis/client'
+import { Ratelimit } from '@upstash/ratelimit'
 
 export const runtime = 'nodejs'
+
+// Each generation is a Gemini call; cap per authenticated user so a single
+// account can't drive up AI cost by spamming "Enhance with AI".
+const generateBioRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '1 m'),
+  analytics: true,
+  prefix: '@upstash/ratelimit/generate-bio',
+})
 
 const BIO_MAX = 500
 
@@ -46,6 +57,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  }
+
+  // Per-user quota. Fails open if Upstash is unreachable.
+  try {
+    const { success } = await generateBioRateLimit.limit(user.id)
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment before trying again.' },
+        { status: 429 },
+      )
+    }
+  } catch (err) {
+    console.warn('[api/onboarding/generate-bio] rate limit check failed (failing open):', err)
   }
 
   let body: unknown

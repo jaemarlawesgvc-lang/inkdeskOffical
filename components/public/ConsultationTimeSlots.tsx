@@ -12,7 +12,7 @@ interface ConsultationSlot {
 interface ConsultationTimeSlotsProps {
   artistId: string
   selectedDate: string | null
-  selectedTime: string
+  selectedTime: string | null
   onTimeSelect: (time: string) => void
   accentColor: string
 }

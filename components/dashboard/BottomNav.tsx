@@ -71,6 +71,26 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/services',
+    label: 'Services',
+    exact: false,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" d="M9.49 2.008a.75.75 0 01.02 1.06l-.02.02L4.06 8.5H8.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.25V3.5a.75.75 0 011.5 0v3.94l5.43-5.41a.75.75 0 011.06-.022zM10.51 17.992a.75.75 0 01-.02-1.06l.02-.02L15.94 11.5H11.5a.75.75 0 010-1.5h5.75a.75.75 0 01.75.75v5.75a.75.75 0 01-1.5 0v-3.94l-5.43 5.41a.75.75 0 01-1.06.022z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/availability',
+    label: 'Hours',
+    exact: false,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/page-preview',
     label: 'My page',
     exact: false,

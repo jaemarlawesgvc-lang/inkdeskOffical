@@ -1,6 +1,8 @@
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 import { isFullyBookedNext14Days } from '@/lib/booking/availability'
 import { clientEnv } from '@/lib/env.client'
 import { PublicHeader } from '@/components/public/PublicHeader'
@@ -61,7 +63,7 @@ interface ArtistRecord {
   pricing_notes: string | null
   site_data: SiteData | null
   onboarding_complete: boolean
-  portfolio_images: { public_url: string; caption: string | null; display_order: number }[]
+  portfolio_images: { public_url: string; caption: string | null; display_order: number; media_type: string | null; poster_url: string | null }[]
   flash_designs: { id: string; title: string; price: number; size_cm: string | null; image_path: string; status: 'available' | 'booked' | 'hidden' }[]
   profiles: { email: string } | null
 }
@@ -72,7 +74,9 @@ const DEFAULT_ACCENT = '#ffb700' // gold-500 — Inkquire home theme
 // Data loader (shared by page + generateMetadata)
 // ---------------------------------------------------------------------------
 
-async function loadArtist(username: string): Promise<ArtistRecord | null> {
+// Wrapped in React cache() so the loader is deduped per request: it runs once
+// even though both generateMetadata and the page body call it.
+const loadArtist = cache(async (username: string): Promise<ArtistRecord | null> => {
   const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase
@@ -83,7 +87,9 @@ async function loadArtist(username: string): Promise<ArtistRecord | null> {
       portfolio_images (
         public_url,
         caption,
-        display_order
+        display_order,
+        media_type,
+        poster_url
       ),
       flash_designs (
         id,
@@ -103,12 +109,11 @@ async function loadArtist(username: string): Promise<ArtistRecord | null> {
     .maybeSingle()
 
   if (error || !data) {
-    console.error('[loadArtist] Query failed:', { error, data, username })
+    logger.error('[loadArtist] Query failed', error, { event: 'load_artist_failed', username })
     return null
   }
-  console.log('[loadArtist] Found artist:', { username: data.username, onboarding_complete: data.onboarding_complete })
   return data as unknown as ArtistRecord
-}
+})
 
 // ---------------------------------------------------------------------------
 // SEO metadata
@@ -138,7 +143,8 @@ export async function generateMetadata({
     `Book a consultation with ${name}. View portfolio and availability.`
   const canonical = `${clientEnv.appUrl}/${artist.username}`
   const ogImage = artist.portfolio_images
-    ?.slice()
+    ?.filter((img) => img.media_type !== 'video')
+    .slice()
     .sort((a, b) => a.display_order - b.display_order)[0]?.public_url
 
   return {
@@ -208,7 +214,16 @@ export default async function ArtistPage({
   const portfolio = (artist.portfolio_images ?? [])
     .slice()
     .sort((a, b) => a.display_order - b.display_order)
-    .map((img) => ({ publicUrl: img.public_url, caption: img.caption ?? '' }))
+    .map((img) => ({
+      publicUrl: img.public_url,
+      caption: img.caption ?? '',
+      mediaType: (img.media_type === 'video' ? 'video' : 'image') as 'image' | 'video',
+      posterUrl: img.poster_url ?? null,
+    }))
+
+  // Components that treat entries as still images (hero background, marquee)
+  // only receive image items; the portfolio grid + lightbox handle video.
+  const portfolioImagesOnly = portfolio.filter((p) => p.mediaType !== 'video')
 
   const styleTags = Array.isArray(artist.style_tags) ? artist.style_tags : []
   const services = site.services ?? []
@@ -224,20 +239,37 @@ export default async function ArtistPage({
   const aboutBody = site.about?.body ?? artist.bio ?? ''
 
   const supabase = createSupabaseAdminClient()
-  const { count: faqCount } = await supabase
-    .from('artist_faqs')
-    .select('id', { count: 'exact', head: true })
-    .eq('artist_id', artist.id)
 
-  const { data: reviewRows } = await supabase
-    .from('reviews')
-    .select('id, rating, body, photo_url, client_name')
-    .eq('artist_id', artist.id)
-    .eq('approved', true)
-    .eq('flagged', false)
-    .not('rating', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(20)
+  const today = new Date().toISOString().slice(0, 10)
+
+  // These four queries are independent of one another, so run them concurrently
+  // instead of awaiting each in sequence (removes the data-fetch waterfall).
+  const [
+    { count: faqCount },
+    { data: reviewRows },
+    fullyBooked,
+    { data: credentialRows },
+  ] = await Promise.all([
+    supabase
+      .from('artist_faqs')
+      .select('id', { count: 'exact', head: true })
+      .eq('artist_id', artist.id),
+    supabase
+      .from('reviews')
+      .select('id, rating, body, photo_url, client_name')
+      .eq('artist_id', artist.id)
+      .eq('approved', true)
+      .eq('flagged', false)
+      .not('rating', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    isFullyBookedNext14Days(supabase, artist.id),
+    supabase
+      .from('artist_credentials')
+      .select('id, type, title, issuing_body, year, url, storage_path, expiry_date')
+      .eq('artist_id', artist.id)
+      .is('deleted_at', null),
+  ])
 
   const reviews = (reviewRows ?? []).map((r) => {
     const parts = r.client_name.trim().split(/\s+/)
@@ -256,15 +288,6 @@ export default async function ArtistPage({
     reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null
-
-  const fullyBooked = await isFullyBookedNext14Days(supabase, artist.id)
-
-  const today = new Date().toISOString().slice(0, 10)
-  const { data: credentialRows } = await supabase
-    .from('artist_credentials')
-    .select('id, type, title, issuing_body, year, url, storage_path, expiry_date')
-    .eq('artist_id', artist.id)
-    .is('deleted_at', null)
 
   const isLicensed = (credentialRows ?? []).some(
     (c) => c.type === 'license' && (!c.expiry_date || c.expiry_date >= today),
@@ -299,7 +322,7 @@ export default async function ArtistPage({
         name={name}
         description={artist.bio ?? heroSub}
         url={canonical}
-        image={portfolio[0]?.publicUrl ?? null}
+        image={portfolioImagesOnly[0]?.publicUrl ?? null}
         address={artist.studio_address}
       />
 
@@ -338,12 +361,14 @@ export default async function ArtistPage({
           artistName={name}
           instagramHandle={artist.instagram_handle}
           styleTags={styleTags}
-          images={portfolio}
+          images={portfolioImagesOnly}
           yearsExperience={artist.years_experience}
           rating={avgRating}
           reviewCount={reviews.length}
           isLicensed={isLicensed}
         />
+
+        {/* Hero receives the still-image list; images passed for background. */}
 
         {/* About now appears before the portfolio (swapped per request). */}
         {(aboutBody || styleTags.length > 0) && (
@@ -357,7 +382,7 @@ export default async function ArtistPage({
           />
         )}
 
-        <PortfolioMarquee images={portfolio} accentColor={accent} />
+        <PortfolioMarquee images={portfolioImagesOnly} accentColor={accent} />
 
         <PortfolioSection images={portfolio} accentColor={accent} />
 

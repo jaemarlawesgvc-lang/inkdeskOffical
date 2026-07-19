@@ -53,7 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Load the artist and their subscription to enforce deposit feature gate
   const { data: artist, error: artistError } = await supabase
     .from('artists')
-    .select('id, user_id, deposit_amount, deposit_required')
+    .select('id, user_id, deposit_amount, deposit_required, stripe_connect_account_id, stripe_connect_status')
     .eq('id', booking.artist_id)
     .single()
 
@@ -92,6 +92,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         upgradeUrl: depositCheck.upgradeUrl,
       },
       { status: 403 },
+    )
+  }
+
+  // Deposits are routed in full to the artist's connected Stripe account (the
+  // product takes NO commission). Refuse to collect a deposit unless the artist
+  // has a fully-onboarded connected account — otherwise the client's money
+  // would land on the platform balance with no mechanism to forward it on.
+  if (
+    !artist.stripe_connect_account_id ||
+    artist.stripe_connect_status !== 'verified'
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'This artist has not finished setting up deposit payouts yet. Please try again later or contact the artist.',
+      },
+      { status: 409 },
     )
   }
 
@@ -136,6 +153,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       bookingId,
       artistId: booking.artist_id,
       clientEmail: finalClientEmail,
+      artistStripeAccountId: artist.stripe_connect_account_id,
     })
 
     // Store the PaymentIntent ID and deposit amount on the booking

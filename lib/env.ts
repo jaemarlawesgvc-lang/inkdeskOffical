@@ -138,6 +138,16 @@ export type Env = z.infer<typeof schema>
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
+// Secrets that MUST be present and valid in production. If any of these is
+// missing/invalid we fail closed (throw) rather than log-and-continue — a
+// missing CRON_SECRET, for example, would otherwise let cron auth be bypassed
+// by sending `Bearer undefined`.
+const PRODUCTION_REQUIRED_SECRETS = [
+  'CRON_SECRET',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+] as const
+
 function validateEnv(): Env {
   const result = schema.safeParse(process.env)
 
@@ -146,6 +156,27 @@ function validateEnv(): Env {
   const issues = result.error.issues
     .map((issue) => `  ✗  ${issue.path.join('.')}: ${issue.message}`)
     .join('\n')
+
+  // Fail closed in production if any genuinely-required secret is missing or
+  // invalid. We read NODE_ENV straight from process.env because result.data
+  // (which would carry the schema default) isn't available on a failed parse.
+  if (process.env.NODE_ENV === 'production') {
+    const failedPaths = new Set(
+      result.error.issues.map((issue) => String(issue.path[0])),
+    )
+    const missingCritical = PRODUCTION_REQUIRED_SECRETS.filter((key) =>
+      failedPaths.has(key),
+    )
+
+    if (missingCritical.length > 0) {
+      throw new Error(
+        '[Inkquire] Refusing to boot in production: required secret(s) missing or invalid — ' +
+          missingCritical.join(', ') +
+          '.\n' +
+          issues,
+      )
+    }
+  }
 
   // Previously this THREW, which hard-crashed every route that imports `env`
   // the moment a single variable was unset — including routes that don't use

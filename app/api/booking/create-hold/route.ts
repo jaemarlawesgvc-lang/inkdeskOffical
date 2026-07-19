@@ -52,6 +52,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
+  // Purge expired holds for this exact slot BEFORE inserting. The
+  // booking_holds_active_slot_unique index (migration 021) blocks two holds on
+  // the same (artist, date, time); expired holds must not count, so clear them.
+  const expiredDeleteQuery = supabase
+    .from('booking_holds')
+    .delete()
+    .eq('artist_id', artistId)
+    .eq('booking_date', date)
+    .lte('expires_at', new Date().toISOString())
+
+  if (time) {
+    expiredDeleteQuery.eq('booking_time', time)
+  }
+
+  await expiredDeleteQuery
+
   // Check if this session already has an active hold for this slot
   const existingHoldQuery = supabase
     .from('booking_holds')
@@ -87,6 +103,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
     return NextResponse.json({ ...hold, reused: false }, { status: 201 })
   } catch (err) {
+    // A concurrent request won the race and holds this slot: the unique index
+    // rejected our insert with 23505. Return a clean conflict, not a 500.
+    if ((err as { code?: string }).code === '23505') {
+      return NextResponse.json(
+        { error: 'This slot was just taken. Please choose another time.' },
+        { status: 409 },
+      )
+    }
     const message = err instanceof Error ? err.message : 'Failed to create hold'
     console.error('[create-hold] error:', message)
     return NextResponse.json({ error: 'Failed to reserve this slot' }, { status: 500 })

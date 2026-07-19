@@ -4,7 +4,7 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/sup
 import { getAppUrl } from '@/lib/app-url'
 import Stripe from 'stripe'
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(_request: NextRequest): Promise<NextResponse> {
   const supabase = await createSupabaseServerClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 

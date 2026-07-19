@@ -50,6 +50,26 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/services',
+    label: 'Services',
+    tourId: 'nav-services',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" d="M9.49 2.008a.75.75 0 01.02 1.06l-.02.02L4.06 8.5H8.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.25V3.5a.75.75 0 011.5 0v3.94l5.43-5.41a.75.75 0 011.06-.022zM10.51 17.992a.75.75 0 01-.02-1.06l.02-.02L15.94 11.5H11.5a.75.75 0 010-1.5h5.75a.75.75 0 01.75.75v5.75a.75.75 0 01-1.5 0v-3.94l-5.43 5.41a.75.75 0 01-1.06.022z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/availability',
+    label: 'Availability',
+    tourId: 'nav-availability',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/page-preview',
     label: 'Edit my page',
     tourId: 'nav-edit',
@@ -97,6 +117,16 @@ const NAV_ITEMS = [
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
         <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a.78.78 0 01-.07.345zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/domain',
+    label: 'Custom Domain',
+    tourId: 'nav-domain',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+        <path fillRule="evenodd" d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16A8 8 0 0010 2zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z" clipRule="evenodd" />
       </svg>
     ),
   },

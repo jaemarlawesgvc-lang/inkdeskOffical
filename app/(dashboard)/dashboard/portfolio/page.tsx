@@ -34,7 +34,7 @@ export default async function PortfolioPage() {
   // 1. Fetch gallery photos
   const { data: imageRows } = await supabase
     .from('portfolio_images')
-    .select('id, storage_path, public_url, display_order, caption')
+    .select('id, storage_path, public_url, display_order, caption, media_type, poster_url')
     .eq('artist_id', artist.id)
     .is('deleted_at', null)
     .order('display_order', { ascending: true })
@@ -45,6 +45,8 @@ export default async function PortfolioPage() {
     publicUrl: img.public_url,
     displayOrder: img.display_order,
     caption: img.caption,
+    mediaType: (img.media_type === 'video' ? 'video' : 'image') as 'image' | 'video',
+    posterUrl: img.poster_url ?? null,
   }))
 
   // 2. Fetch flash designs
@@ -52,7 +54,7 @@ export default async function PortfolioPage() {
     .from('flash_designs')
     .select('id, title, price, size_cm, image_path, status, created_at')
     .eq('artist_id', artist.id)
-    .order('created_at', { descending: true })
+    .order('created_at', { ascending: false })
 
   const flash = (flashRows ?? []).map((f) => ({
     id: f.id,

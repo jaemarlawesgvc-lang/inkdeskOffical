@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { randomBytes } from 'crypto'
 import { CONSULTATION_DURATION_HOURS } from '@/lib/constants'
 import { getConsultationSlotsForDate } from '@/lib/booking/consultation-slots'
 
@@ -88,7 +87,14 @@ export async function createBookingHold(
     .single()
 
   if (error) {
-    throw new Error(`Failed to create booking hold: ${error.message}`)
+    // Preserve the Postgres error code (e.g. 23505 unique_violation from the
+    // booking_holds_active_slot_unique index) so the API can return a clean
+    // "slot just taken" response instead of a generic 500.
+    const holdError = new Error(`Failed to create booking hold: ${error.message}`) as Error & {
+      code?: string
+    }
+    holdError.code = error.code
+    throw holdError
   }
 
   return {
@@ -188,12 +194,4 @@ export async function isFullyBookedNext14Days(
   }
 
   return true
-}
-
-// ---------------------------------------------------------------------------
-// generateAccessToken
-// ---------------------------------------------------------------------------
-
-export function generateAccessToken(): string {
-  return randomBytes(32).toString('hex')
 }

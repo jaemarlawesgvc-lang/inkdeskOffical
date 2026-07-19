@@ -427,12 +427,21 @@ export interface ReviewRequestData {
   artistName: string
   reviewUrl: string
   artistEmail: string | null
+  /** Optional Google Business review link — surfaces a secondary CTA when set. */
+  googleReviewUrl?: string | null
 }
 
 export function reviewRequestTemplate(data: ReviewRequestData): {
   subject: string
   html: string
 } {
+  const googleCta = data.googleReviewUrl
+    ? `<p style="margin:24px 0 8px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Loved your experience? A public Google review helps ${esc(data.artistName)} enormously.
+</p>
+<a href="${data.googleReviewUrl}" style="display:inline-block;padding:12px 24px;background-color:#262626;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;border:1px solid #404040;">Leave us a Google review</a>`
+    : ''
+
   const content = `
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">How was your experience?</h1>
 <p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
@@ -440,6 +449,7 @@ export function reviewRequestTemplate(data: ReviewRequestData): {
   Would you mind leaving a quick review? It really helps other clients find great artists.
 </p>
 <a href="${data.reviewUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Leave a review</a>
+${googleCta}
 <p style="margin:24px 0 0;font-size:12px;color:#525252;line-height:1.5;">
   This link expires in 14 days.
 </p>`
@@ -804,6 +814,50 @@ ${data.statusUrl ? `<a href="${data.statusUrl}" style="display:inline-block;padd
 
   return {
     subject: `Rescheduled: Your booking with ${data.artistName}`,
+    html: layout(content, data.artistEmail ?? undefined),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 20. Healed-Photo Follow-Up — to client (~21 days after a completed live tattoo)
+// ---------------------------------------------------------------------------
+
+export interface HealedPhotoRequestData {
+  clientName: string
+  artistName: string
+  /** Public booking page for the artist — the gentle rebooking CTA. */
+  rebookUrl: string
+  artistEmail: string | null
+}
+
+export function healedPhotoRequestTemplate(data: HealedPhotoRequestData): {
+  subject: string
+  html: string
+} {
+  const shareLine = data.artistEmail
+    ? `<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Simply reply to this email with a photo, or send it to <a href="mailto:${data.artistEmail}" style="color:#ffffff;text-decoration:underline;">${esc(data.artistEmail)}</a>. It only takes a second and means the world.
+</p>`
+    : `<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Simply reply to this email with a photo — it only takes a second and means the world.
+</p>`
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">How&rsquo;s your tattoo healing?</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  Hi ${esc(data.clientName)}, it&rsquo;s been a few weeks since your session with <strong style="color:#ffffff;">${esc(data.artistName)}</strong>.
+  By now your tattoo should be beautifully healed &mdash; we&rsquo;d love to see how it settled.
+</p>
+<h2 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#ffffff;">Share a healed photo</h2>
+${shareLine}
+<h2 style="margin:0 0 8px;font-size:15px;font-weight:600;color:#ffffff;">Thinking about your next piece?</h2>
+<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  ${esc(data.artistName)} would be glad to work with you again. Book your next session whenever you&rsquo;re ready.
+</p>
+<a href="${data.rebookUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Book your next session</a>`
+
+  return {
+    subject: `How's your tattoo healing, ${data.clientName}?`,
     html: layout(content, data.artistEmail ?? undefined),
   }
 }

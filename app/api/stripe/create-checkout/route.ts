@@ -5,6 +5,7 @@ import { createCheckoutSchema } from '@/lib/validations/stripe'
 import {
   getOrCreateStripeCustomer,
   createSubscriptionCheckout,
+  getStripe,
   STRIPE_PRICE_IDS,
 } from '@/lib/stripe/server'
 import { getAppUrl } from '@/lib/app-url'
@@ -92,6 +93,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .eq('id', user.id)
     }
 
+    // Repeat-trial guard: Stripe is the source of truth. If this customer has
+    // EVER had a subscription (any status, including canceled), don't grant a
+    // fresh free trial — only genuinely-new customers get one. Prevents the
+    // cancel-and-restart-forever free-trial loop.
+    const priorSubs = await getStripe().subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 1,
+    })
+    const hasEverSubscribed = priorSubs.data.length > 0
+    const trialPeriodDays = hasEverSubscribed ? 0 : SUBSCRIPTION_TRIAL_DAYS
+
     const appUrl = getAppUrl()
     const checkoutUrl = await createSubscriptionCheckout({
       customerId,
@@ -99,7 +112,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       userId: user.id,
       successUrl: `${appUrl}/dashboard/settings/billing?checkout=success`,
       cancelUrl: `${appUrl}/dashboard/settings/billing?checkout=cancelled`,
-      trialPeriodDays: SUBSCRIPTION_TRIAL_DAYS,
+      trialPeriodDays,
     })
 
     return NextResponse.json({ url: checkoutUrl })

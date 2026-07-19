@@ -42,7 +42,7 @@ export async function GET(
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   }
 
-  const artistProfile = artist.profiles as { email: string } | null
+  const artistProfile = artist.profiles as unknown as { email: string } | null
   const invoiceNumber = `INV-${booking.id.slice(0, 8).toUpperCase()}`
   const issueDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 

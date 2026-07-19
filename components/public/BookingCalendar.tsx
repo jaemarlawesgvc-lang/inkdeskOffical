@@ -40,30 +40,25 @@ export function BookingCalendar({
     const map: Record<string, boolean> = {}
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
 
-    const checks: Promise<void>[] = []
+    // Single request for the whole month (was one request per day → N+1).
+    let serverMap: Record<string, boolean> = {}
+    try {
+      const res = await fetch(
+        `/api/booking/month-availability?artistId=${artistId}&year=${viewYear}&month=${viewMonth + 1}`,
+      )
+      const json = (await res.json()) as { availability?: Record<string, boolean> }
+      serverMap = json.availability ?? {}
+    } catch {
+      serverMap = {}
+    }
+
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(viewYear, viewMonth, i)
       d.setHours(0, 0, 0, 0)
       const dateStr = formatYMD(d)
-
-      if (d < today) {
-        map[dateStr] = false
-        continue
-      }
-
-      checks.push(
-        fetch(`/api/booking/check-availability?artistId=${artistId}&date=${dateStr}`)
-          .then((res) => res.json() as Promise<{ available: boolean }>)
-          .then((json) => {
-            map[dateStr] = json.available === true
-          })
-          .catch(() => {
-            map[dateStr] = false
-          }),
-      )
+      map[dateStr] = d < today ? false : serverMap[dateStr] === true
     }
 
-    await Promise.all(checks)
     setAvailableMap(map)
     setLoading(false)
   }, [artistId, viewYear, viewMonth, today])

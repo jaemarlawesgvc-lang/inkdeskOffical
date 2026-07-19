@@ -48,31 +48,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq('stripe_event_id', event.id)
     .maybeSingle()
 
-  if (existingEvent) {
-    // Already received — if processed, return 200; if not, skip to avoid
-    // double-processing an event that might be mid-flight in another invocation.
+  if (existingEvent?.processed) {
+    // Genuinely already processed — ack so Stripe stops retrying.
     return NextResponse.json({ received: true, duplicate: true })
   }
 
   // ── 3. Insert event before processing ────────────────────────────────────
-  const eventRow = {
-    stripe_event_id: event.id,
-    event_type: event.type,
-    payload: event,
-    processed: false,
-    processed_at: null,
-    error: null,
-  }
-
-  const { error: insertError } = await supabase.from('stripe_events').insert(eventRow)
-
-  if (insertError) {
-    // Unique constraint race: another invocation beat us
-    if (insertError.code === '23505') {
-      return NextResponse.json({ received: true, duplicate: true })
+  // If the event already exists but is NOT yet processed (a prior attempt
+  // failed / was interrupted), skip the insert and fall through to re-process
+  // it rather than silently dropping it.
+  if (!existingEvent) {
+    const eventRow = {
+      stripe_event_id: event.id,
+      event_type: event.type,
+      payload: event,
+      processed: false,
+      processed_at: null,
+      error: null,
     }
-    console.error('[stripe-webhook] insert error:', insertError.message)
-    return NextResponse.json({ error: 'Failed to log event' }, { status: 500 })
+
+    const { error: insertError } = await supabase.from('stripe_events').insert(eventRow)
+
+    if (insertError) {
+      // Unique constraint race: another invocation beat us to the insert.
+      if (insertError.code === '23505') {
+        return NextResponse.json({ received: true, duplicate: true })
+      }
+      console.error('[stripe-webhook] insert error:', insertError.message)
+      return NextResponse.json({ error: 'Failed to log event' }, { status: 500 })
+    }
   }
 
   // ── 4. Process event ─────────────────────────────────────────────────────
@@ -85,6 +89,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .update({
         processed: true,
         processed_at: new Date().toISOString(),
+        error: null,
       })
       .eq('stripe_event_id', event.id)
 
@@ -99,7 +104,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .update({ error: message })
       .eq('stripe_event_id', event.id)
 
-    // Return 200 to Stripe so it doesn't retry endlessly — error is logged
-    return NextResponse.json({ received: true, error: message })
+    // Return a non-2xx so Stripe retries the delivery — the event row stays
+    // processed=false and will be re-processed on the next attempt.
+    return NextResponse.json({ received: false, error: message }, { status: 500 })
   }
 }

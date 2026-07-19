@@ -180,6 +180,7 @@ export default async function PagePreviewPage() {
           backgroundImageUrl:
             ((artist.site_data as { backgroundImageUrl?: string | null } | null)?.backgroundImageUrl) ?? '',
           zoomLink: (artist.zoom_link as string) ?? '',
+          googleReviewUrl: (artist.google_review_url as string) ?? '',
         }}
       />
 

@@ -11,6 +11,8 @@ interface PortfolioImage {
   publicUrl: string
   displayOrder: number
   caption: string | null
+  mediaType: 'image' | 'video'
+  posterUrl: string | null
 }
 
 interface FlashDesign {

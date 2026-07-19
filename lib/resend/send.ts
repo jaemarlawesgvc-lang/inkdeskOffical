@@ -16,6 +16,7 @@ import {
   newMessageNotificationTemplate,
   conversationInviteTemplate,
   bookingRescheduledTemplate,
+  healedPhotoRequestTemplate,
   type BookingEmailData,
 } from '@/lib/resend/templates'
 import { getAppUrl } from '@/lib/app-url'
@@ -358,11 +359,26 @@ export async function sendReviewRequest(
     artistEmail: string | null
   },
 ): Promise<SendResult> {
+  // Surface the artist's Google review link in the CTA when they've set one.
+  // Looked up here (rather than passed in) so the unowned cron caller needs no
+  // change; a missing column / null simply omits the secondary CTA.
+  let googleReviewUrl: string | null = null
+  const { data: bookingArtist } = await supabase
+    .from('bookings')
+    .select('artists ( google_review_url )')
+    .eq('id', params.bookingId)
+    .maybeSingle()
+  if (bookingArtist) {
+    const art = bookingArtist.artists as unknown as { google_review_url: string | null } | null
+    googleReviewUrl = art?.google_review_url ?? null
+  }
+
   const { subject, html } = reviewRequestTemplate({
     clientName: params.clientName,
     artistName: params.artistName,
     reviewUrl: `${getAppUrl()}/review?token=${params.reviewToken}`,
     artistEmail: params.artistEmail,
+    googleReviewUrl,
   })
 
   return sendEmail({
@@ -370,6 +386,39 @@ export async function sendReviewRequest(
     subject,
     html,
     emailType: 'review_request',
+    bookingId: params.bookingId,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 6b. Healed-Photo Follow-Up → client (~21 days after a completed live tattoo)
+// ---------------------------------------------------------------------------
+
+export async function sendHealedPhotoRequest(
+  supabase: SupabaseClient,
+  params: {
+    bookingId: string
+    clientName: string
+    clientEmail: string
+    artistName: string
+    artistUsername: string
+    artistEmail: string | null
+  },
+): Promise<SendResult> {
+  const { subject, html } = healedPhotoRequestTemplate({
+    clientName: params.clientName,
+    artistName: params.artistName,
+    rebookUrl: `${getAppUrl()}/${params.artistUsername}`,
+    artistEmail: params.artistEmail,
+  })
+
+  return sendEmail({
+    to: params.clientEmail,
+    subject,
+    html,
+    emailType: 'healed_photo_request',
     bookingId: params.bookingId,
     userId: null,
     supabase,
@@ -597,6 +646,8 @@ export async function sendBookingRescheduled(
 
   return {
     success: clientRes.success && artistRes.success,
+    messageId: clientRes.messageId ?? artistRes.messageId ?? null,
     error: clientRes.error || artistRes.error || null,
+    skipped: clientRes.skipped && artistRes.skipped,
   }
 }

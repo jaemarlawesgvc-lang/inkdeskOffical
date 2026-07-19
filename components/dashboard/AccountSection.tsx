@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { forgotPasswordAction } from '@/lib/auth/actions'
 
 interface AccountSectionProps {
   userEmail: string
@@ -34,13 +35,16 @@ export function AccountSection({ userEmail, lastSignIn, username }: AccountSecti
     setResetStatus('sending')
     setResetError(null)
     try {
-      const res = await fetch('/api/dashboard/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail }),
-      })
-      const json = (await res.json()) as { error?: string }
-      if (!res.ok) throw new Error(json.error ?? 'Failed to send reset email')
+      // Route through the shared forgot-password server action, which only ever
+      // emails the address passed in. userEmail is the authenticated session's
+      // own email (server-provided prop), so this cannot be used to bomb others.
+      const formData = new FormData()
+      formData.set('email', userEmail)
+      const result = await forgotPasswordAction(
+        { success: false, message: '' },
+        formData,
+      )
+      if (!result.success) throw new Error(result.message || 'Failed to send reset email')
       setResetStatus('sent')
       setTimeout(() => setResetStatus('idle'), 5000)
     } catch (err) {

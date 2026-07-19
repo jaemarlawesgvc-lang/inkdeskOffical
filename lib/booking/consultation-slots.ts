@@ -74,11 +74,35 @@ export interface ConsultationSlot {
   available: boolean
 }
 
+/**
+ * Resolve the buffer/setup minutes configured on an artist. Returns 0 when the
+ * column is absent (pre-022 schema) or the artist can't be read.
+ */
+export async function getArtistBufferMinutes(
+  supabase: SupabaseClient,
+  artistId: string,
+): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from('artists')
+      .select('buffer_minutes')
+      .eq('id', artistId)
+      .maybeSingle()
+    const raw = (data as { buffer_minutes?: number | null } | null)?.buffer_minutes
+    return Number.isFinite(raw) && (raw as number) > 0 ? Number(raw) : 0
+  } catch {
+    return 0
+  }
+}
+
 export async function getConsultationSlotsForDate(
   supabase: SupabaseClient,
   artistId: string,
   date: string,
   durationHours: number = CONSULTATION_DURATION_HOURS,
+  // Buffer/setup minutes kept clear on both sides of each occupied range.
+  // undefined → auto-load from the artist so every existing caller gets buffers.
+  bufferMinutes?: number,
 ): Promise<{ slots: ConsultationSlot[]; reason: string | null }> {
   const { data: blocked } = await supabase
     .from('blocked_dates')
@@ -93,42 +117,56 @@ export async function getConsultationSlotsForDate(
 
   const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay()
 
-  const { data: availability } = await supabase
+  // Multiple windows per weekday (022): fetch ALL rows for the day, not one.
+  const { data: availabilityRows } = await supabase
     .from('artist_availability')
     .select('start_time, end_time')
     .eq('artist_id', artistId)
     .eq('day_of_week', dayOfWeek)
-    .maybeSingle()
+    .order('start_time', { ascending: true })
 
-  let workingHours = availability
+  let windows: { start_time: string; end_time: string }[] = availabilityRows ?? []
 
-  if (!workingHours) {
+  if (windows.length === 0) {
     const { count } = await supabase
       .from('artist_availability')
       .select('id', { count: 'exact', head: true })
       .eq('artist_id', artistId)
 
-    if (count === 0) {
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        workingHours = { start_time: '09:00:00', end_time: '17:00:00' }
-      }
+    // Keep the legacy 9–5 weekday fallback for artists with zero rows anywhere.
+    if (count === 0 && dayOfWeek >= 1 && dayOfWeek <= 5) {
+      windows = [{ start_time: '09:00:00', end_time: '17:00:00' }]
     }
   }
 
-  if (!workingHours) {
+  if (windows.length === 0) {
     return { slots: [], reason: 'The artist is not available on this day' }
   }
 
-  const allSlots = generateSlotTimes(
-    workingHours.start_time,
-    workingHours.end_time,
-    CONSULTATION_SLOT_INTERVAL_MINUTES,
-    durationHours,
-  )
+  const resolvedBuffer =
+    bufferMinutes !== undefined ? bufferMinutes : await getArtistBufferMinutes(supabase, artistId)
 
-  const occupied = await loadOccupiedRanges(supabase, artistId, date)
+  const occupied = await loadOccupiedRanges(supabase, artistId, date, resolvedBuffer)
 
-  const slots: ConsultationSlot[] = allSlots.map((time) => {
+  // Generate candidate start times across every window, deduped + ordered.
+  const seen = new Set<string>()
+  const candidateTimes: string[] = []
+  for (const w of windows) {
+    for (const time of generateSlotTimes(
+      w.start_time,
+      w.end_time,
+      CONSULTATION_SLOT_INTERVAL_MINUTES,
+      durationHours,
+    )) {
+      if (!seen.has(time)) {
+        seen.add(time)
+        candidateTimes.push(time)
+      }
+    }
+  }
+  candidateTimes.sort((a, b) => timeToMinutes(a) - timeToMinutes(b))
+
+  const slots: ConsultationSlot[] = candidateTimes.map((time) => {
     const start = timeToMinutes(time)
     const end = start + durationHours * 60
     const available = !occupied.some((r) => rangesOverlap(start, end, r.startMinutes, r.endMinutes))
@@ -146,6 +184,9 @@ export async function loadOccupiedRanges(
   supabase: SupabaseClient,
   artistId: string,
   date: string,
+  // Padding (minutes) applied to both sides of each occupied range so free
+  // slots keep a gap from existing appointments. Defaults to 0 (no buffer).
+  bufferMinutes = 0,
 ): Promise<OccupiedRange[]> {
   const [{ data: bookings }, { data: holds }] = await Promise.all([
     supabase
@@ -165,20 +206,21 @@ export async function loadOccupiedRanges(
       .not('booking_time', 'is', null),
   ])
 
+  const pad = Number.isFinite(bufferMinutes) && bufferMinutes > 0 ? bufferMinutes : 0
   const ranges: OccupiedRange[] = []
 
   for (const row of bookings ?? []) {
     if (!row.booking_time) continue
     const start = timeToMinutes(row.booking_time)
     const duration = Number(row.duration_hours ?? CONSULTATION_DURATION_HOURS)
-    ranges.push({ startMinutes: start, endMinutes: start + duration * 60 })
+    ranges.push({ startMinutes: start - pad, endMinutes: start + duration * 60 + pad })
   }
 
   for (const row of holds ?? []) {
     if (!row.booking_time) continue
     const start = timeToMinutes(row.booking_time)
     const duration = Number(row.duration_hours ?? CONSULTATION_DURATION_HOURS)
-    ranges.push({ startMinutes: start, endMinutes: start + duration * 60 })
+    ranges.push({ startMinutes: start - pad, endMinutes: start + duration * 60 + pad })
   }
 
   return ranges

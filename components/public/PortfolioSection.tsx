@@ -7,6 +7,8 @@ import { Reveal } from '@/components/public/Reveal'
 interface PortfolioImage {
   publicUrl: string
   caption: string
+  mediaType?: 'image' | 'video'
+  posterUrl?: string | null
 }
 
 interface PortfolioSectionProps {
@@ -104,14 +106,34 @@ export function PortfolioSection({ images, accentColor }: PortfolioSectionProps)
                 style={{ ['--tw-ring-color' as string]: accentColor }}
                 aria-label={`View ${img.caption || `portfolio image ${i + 1}`} enlarged`}
               >
-                <Image
-                  src={img.publicUrl}
-                  alt={img.caption || `Portfolio image ${i + 1}`}
-                  fill
-                  sizes="(max-width: 768px) 33vw, 33vw"
-                  loading="lazy"
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                />
+                {img.mediaType === 'video' ? (
+                  <>
+                    <video
+                      src={img.publicUrl}
+                      poster={img.posterUrl ?? undefined}
+                      muted
+                      playsInline
+                      loop
+                      preload="metadata"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                    />
+                    <span className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90 pointer-events-none">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                        <path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.34-5.89a1.5 1.5 0 000-2.54L6.3 2.84z" />
+                      </svg>
+                      Video
+                    </span>
+                  </>
+                ) : (
+                  <Image
+                    src={img.publicUrl}
+                    alt={img.caption || `Portfolio image ${i + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 33vw, 33vw"
+                    loading="lazy"
+                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                  />
+                )}
 
                 {/* Accent ring on hover */}
                 <div
@@ -182,15 +204,27 @@ export function PortfolioSection({ images, accentColor }: PortfolioSectionProps)
           )}
 
           <div className="relative max-w-[90vw] max-h-[75vh] w-full h-full flex flex-col items-center justify-center p-4">
-            <Image
-              src={activeImage.publicUrl}
-              alt={activeImage.caption || `Portfolio image ${lightboxIndex + 1}`}
-              width={1200}
-              height={1600}
-              sizes="90vw"
-              className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl shadow-2xl transition-transform duration-300"
-              priority
-            />
+            {activeImage.mediaType === 'video' ? (
+              <video
+                src={activeImage.publicUrl}
+                poster={activeImage.posterUrl ?? undefined}
+                controls
+                autoPlay
+                playsInline
+                loop
+                className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl shadow-2xl"
+              />
+            ) : (
+              <Image
+                src={activeImage.publicUrl}
+                alt={activeImage.caption || `Portfolio image ${lightboxIndex + 1}`}
+                width={1200}
+                height={1600}
+                sizes="90vw"
+                className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl shadow-2xl transition-transform duration-300"
+                priority
+              />
+            )}
           </div>
 
           {images.length > 1 && (

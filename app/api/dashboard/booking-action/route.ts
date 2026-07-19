@@ -3,12 +3,13 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
 import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
 import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled, sendBookingCompleted, sendBookingUpgraded } from '@/lib/resend/send'
+import { getStripe } from '@/lib/stripe/server'
 import { z } from 'zod'
 
 const schema = z.object({
   bookingId: z.string().uuid(),
   artistId: z.string().uuid(),
-  action: z.enum(['confirm', 'cancel', 'complete', 'add_note', 'upgrade']),
+  action: z.enum(['confirm', 'cancel', 'complete', 'add_note', 'upgrade', 'no_show']),
   note: z.string().max(1000).optional(),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
   bookingTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Time must be HH:MM').optional(),
@@ -21,6 +22,36 @@ const STATUS_TRANSITIONS: Record<string, string> = {
   confirm: 'confirmed',
   cancel: 'cancelled',
   complete: 'completed',
+  no_show: 'no_show',
+}
+
+/**
+ * Forfeit a booking's deposit to the artist by capturing its manual-capture
+ * PaymentIntent. Handles the real-world states gracefully:
+ *   • requires_capture  → capture now (the forfeit path for manual intents)
+ *   • succeeded         → auto-capture deposit already collected → already forfeited
+ *   • anything else      → nothing to forfeit (canceled / unpaid / processing)
+ * Never throws — returns whether the deposit is now (or already) forfeited.
+ */
+async function forfeitDeposit(
+  intentId: string,
+): Promise<{ forfeited: boolean; reason: string }> {
+  try {
+    const stripe = getStripe()
+    const intent = await stripe.paymentIntents.retrieve(intentId)
+    if (intent.status === 'requires_capture') {
+      await stripe.paymentIntents.capture(intentId)
+      return { forfeited: true, reason: 'captured' }
+    }
+    if (intent.status === 'succeeded') {
+      // Deposit was auto-captured at payment time — funds already sit with the
+      // artist, so it counts as forfeited without any further Stripe call.
+      return { forfeited: true, reason: 'already_captured' }
+    }
+    return { forfeited: false, reason: `intent status ${intent.status}` }
+  } catch (err) {
+    return { forfeited: false, reason: err instanceof Error ? err.message : 'capture failed' }
+  }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -209,6 +240,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         cancelledDate: bookingBeforeUpdate.booking_date,
         artistEmail: artistProfile?.email ?? null,
       })
+    }
+  }
+
+  // No-show deposit forfeit: when an artist marks a booking as a no-show and has
+  // auto-forfeit enabled, capture (forfeit) the manual-capture deposit to the
+  // artist. Idempotent via the deposit_forfeited flag; failures are non-fatal so
+  // the status change itself always succeeds.
+  if (action === 'no_show') {
+    const { data: bookingRow } = await db
+      .from('bookings')
+      .select('stripe_payment_intent_id, deposit_forfeited')
+      .eq('id', bookingId)
+      .eq('artist_id', artistId)
+      .single()
+
+    const { data: artistRow } = await db
+      .from('artists')
+      .select('auto_forfeit_no_shows')
+      .eq('id', artistId)
+      .single()
+
+    const autoForfeit = artistRow?.auto_forfeit_no_shows ?? true
+
+    if (autoForfeit && bookingRow?.stripe_payment_intent_id && !bookingRow.deposit_forfeited) {
+      const result = await forfeitDeposit(bookingRow.stripe_payment_intent_id)
+      if (result.forfeited) {
+        const { error: forfeitErr } = await db
+          .from('bookings')
+          .update({ deposit_forfeited: true, updated_at: new Date().toISOString() })
+          .eq('id', bookingId)
+          .eq('artist_id', artistId)
+        if (forfeitErr) {
+          console.error('[booking-action] deposit_forfeited flag update failed:', forfeitErr.message)
+        }
+      } else {
+        console.info(`[booking-action] no_show ${bookingId}: deposit not forfeited (${result.reason})`)
+      }
     }
   }
 

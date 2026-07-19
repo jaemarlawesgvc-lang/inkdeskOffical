@@ -12,7 +12,20 @@ interface PortfolioImage {
   publicUrl: string
   displayOrder: number
   caption: string | null
+  mediaType: 'image' | 'video'
+  posterUrl: string | null
 }
+
+const ACCEPTED_UPLOAD_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+]
+const IMAGE_MAX_BYTES = 10 * 1024 * 1024
+const VIDEO_MAX_BYTES = 50 * 1024 * 1024
 
 interface PortfolioGridProps {
   artistId: string
@@ -20,7 +33,7 @@ interface PortfolioGridProps {
   plan: Plan
 }
 
-export function PortfolioGrid({ artistId, images: initialImages, plan }: PortfolioGridProps) {
+export function PortfolioGrid({ images: initialImages, plan }: PortfolioGridProps) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [images, setImages] = useState(initialImages)
@@ -44,50 +57,46 @@ export function PortfolioGrid({ artistId, images: initialImages, plan }: Portfol
       const newImages: PortfolioImage[] = []
 
       for (const file of Array.from(files)) {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) continue
-        if (file.size > 10 * 1024 * 1024) {
-          setUploadError('One or more files exceed the 10 MB limit')
+        const isVideo = file.type.startsWith('video/')
+        if (!ACCEPTED_UPLOAD_TYPES.includes(file.type)) {
+          setUploadError('Only JPEG, PNG, WEBP images and MP4, WEBM, MOV videos are accepted')
+          continue
+        }
+        if (file.size > (isVideo ? VIDEO_MAX_BYTES : IMAGE_MAX_BYTES)) {
+          setUploadError(isVideo ? 'Videos must be under 50 MB' : 'Images must be under 10 MB')
           continue
         }
 
-        const ext = file.name.split('.').pop() ?? 'jpg'
-        const path = `${artistId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+        // Upload + validate (magic-byte sniff) + persist via the authenticated API.
+        const body = new FormData()
+        body.append('file', file)
 
-        const { error: uploadError } = await supabase.storage
-          .from('portfolio-images')
-          .upload(path, file, { cacheControl: '31536000', upsert: false, contentType: file.type })
-
-        if (uploadError) {
-          setUploadError(uploadError.message)
+        let res: Response
+        try {
+          res = await fetch('/api/dashboard/portfolio/upload', { method: 'POST', body })
+        } catch {
+          setUploadError('Upload failed. Please check your connection and try again.')
           continue
         }
 
-        const { data: urlData } = supabase.storage.from('portfolio-images').getPublicUrl(path)
+        const json = (await res.json().catch(() => null)) as
+          | (PortfolioImage & { error?: string })
+          | { error?: string }
+          | null
 
-        // Persist to DB
-        const { data: row, error: dbError } = await supabase
-          .from('portfolio_images')
-          .insert({
-            artist_id: artistId,
-            storage_path: path,
-            public_url: urlData.publicUrl,
-            display_order: images.length + newImages.length,
-            caption: '',
-          })
-          .select('id, storage_path, public_url, display_order, caption')
-          .single()
-
-        if (dbError || !row) {
-          setUploadError(dbError?.message ?? 'Failed to save image')
+        if (!res.ok || !json || !('id' in json)) {
+          setUploadError((json && 'error' in json && json.error) || 'Failed to save item')
           continue
         }
 
         newImages.push({
-          id: row.id,
-          storagePath: row.storage_path,
-          publicUrl: row.public_url,
-          displayOrder: row.display_order,
-          caption: row.caption,
+          id: json.id,
+          storagePath: json.storagePath,
+          publicUrl: json.publicUrl,
+          displayOrder: json.displayOrder,
+          caption: json.caption,
+          mediaType: json.mediaType,
+          posterUrl: json.posterUrl,
         })
       }
 
@@ -95,7 +104,7 @@ export function PortfolioGrid({ artistId, images: initialImages, plan }: Portfol
       setUploading(false)
       startTransition(() => router.refresh())
     },
-    [artistId, images.length, supabase, router],
+    [router],
   )
 
   const handleDelete = async (imageId: string, _storagePath: string) => {
@@ -163,12 +172,12 @@ export function PortfolioGrid({ artistId, images: initialImages, plan }: Portfol
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
             <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
           </svg>
-          {uploading ? 'Uploading…' : 'Upload images'}
+          {uploading ? 'Uploading…' : 'Upload media'}
         </button>
 
         <p className="text-white/30 text-sm">
           {images.length}
-          {limit !== Infinity ? ` / ${limit}` : ''} images
+          {limit !== Infinity ? ` / ${limit}` : ''} items
           {atLimit && (
             <span className="ml-2 text-amber-400">
               — Plan limit reached.{' '}
@@ -183,7 +192,7 @@ export function PortfolioGrid({ artistId, images: initialImages, plan }: Portfol
           ref={fileInputRef}
           type="file"
           multiple
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
           onChange={(e) => void handleUpload(e.target.files)}
           className="sr-only"
           aria-hidden="true"
@@ -207,7 +216,7 @@ export function PortfolioGrid({ artistId, images: initialImages, plan }: Portfol
           }}
           className="border-2 border-dashed border-white/20 rounded-xl p-12 text-center cursor-pointer hover:border-white/40 transition-colors"
         >
-          <p className="text-white/40 text-sm">No portfolio images yet. Click to upload.</p>
+          <p className="text-white/40 text-sm">No portfolio media yet. Click to upload photos or videos.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" role="list" aria-label="Portfolio images">
@@ -234,13 +243,31 @@ export function PortfolioGrid({ artistId, images: initialImages, plan }: Portfol
                   dragOverId === img.id ? 'ring-2 ring-white scale-105' : '',
                 ].join(' ')}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={img.publicUrl}
-                  alt={img.caption ?? `Portfolio image ${idx + 1}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
+                {img.mediaType === 'video' ? (
+                  <>
+                    <video
+                      src={img.publicUrl}
+                      poster={img.posterUrl ?? undefined}
+                      muted
+                      playsInline
+                      loop
+                      preload="metadata"
+                      controls
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute top-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/80 pointer-events-none">
+                      Video
+                    </span>
+                  </>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={img.publicUrl}
+                    alt={img.caption ?? `Portfolio image ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                )}
 
                 {overLimit && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center">

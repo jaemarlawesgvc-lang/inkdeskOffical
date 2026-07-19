@@ -7,9 +7,20 @@ import { sendEmail } from '@/lib/resend/client'
 import { consentFormSubmittedTemplate } from '@/lib/resend/templates'
 import { getAppUrl } from '@/lib/app-url'
 import { MEDICAL_QUESTIONS, type MedicalQuestionId } from '@/lib/consent/questions'
+import { redis } from '@/lib/redis/client'
+import { Ratelimit } from '@upstash/ratelimit'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
+
+// Strict limiter: consent submissions carry medical/PII and are unauthenticated,
+// so cap them tightly per artist+IP to blunt fake-record injection / flooding.
+const consentSubmitRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '10 m'),
+  analytics: true,
+  prefix: '@upstash/ratelimit/consent-submit',
+})
 
 // Object.fromEntries() always types as { [k: string]: V }, even when the
 // input tuples are literal-typed — it can't narrow to the exact question
@@ -55,6 +66,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const data = parsed.data
+
+  const ipAddress =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
+
+  // Per-artist/IP rate limit. Fails open (never blocks a genuine client if
+  // Upstash is unreachable) — matches the middleware limiter behaviour.
+  try {
+    const { success } = await consentSubmitRateLimit.limit(
+      `${data.artistId}:${ipAddress ?? 'unknown'}`,
+    )
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please try again shortly.' },
+        { status: 429 },
+      )
+    }
+  } catch (err) {
+    console.warn('[consent-form/submit] rate limit check failed (failing open):', err)
+  }
+
   const supabase = createSupabaseAdminClient()
 
   const { data: artist, error: artistError } = await supabase
@@ -68,12 +99,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
   }
 
+  // Bind the submission to a legitimate booking for THIS artist. artistId is
+  // publicly discoverable, so on its own it lets anyone inject fake consent/PII
+  // records. A booking id is an unguessable capability delivered only in the
+  // client's confirmation email, so requiring it (and confirming it maps to this
+  // artist) proves the submitter actually has a booking with them.
+  // NOTE: the consent link (built in lib/resend/send.ts, out of scope) carries
+  // booking_id, not access_token, so we validate against the booking id here.
+  if (!data.bookingId) {
+    return NextResponse.json(
+      { error: 'A valid booking is required to submit this consent form.' },
+      { status: 403 },
+    )
+  }
+
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('id', data.bookingId)
+    .eq('artist_id', artist.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (!booking) {
+    return NextResponse.json(
+      { error: 'A valid booking is required to submit this consent form.' },
+      { status: 403 },
+    )
+  }
+
   const profile = artist.profiles as unknown as { email: string } | null
   const artistName = artist.display_name ?? artist.username
   const artistEmail = profile?.email ?? null
-
-  const ipAddress =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
 
   const { data: submission, error: insertError } = await supabase
     .from('consent_form_submissions')
