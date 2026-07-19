@@ -423,6 +423,13 @@ async function handlePaymentIntentSucceeded(
     throw new Error(`Failed to confirm booking ${bookingId}: ${confirmError.message}`)
   }
 
+  // ── Gift card: finalize the decrement + link on payment success ──
+  // The gift_card_id-IS-NULL CAS is the idempotency gate: only the first
+  // delivery claims the link and decrements; redeliveries (or a card already
+  // linked) skip. Best-effort — a failure here must not fail the confirmed
+  // booking (the client was correctly charged the reduced remainder).
+  await applyGiftCardFromMetadata(supabase, bookingId, metadata)
+
   const deleteHoldQuery = supabase
     .from('booking_holds')
     .delete()
@@ -434,6 +441,11 @@ async function handlePaymentIntentSucceeded(
   }
 
   await deleteHoldQuery
+
+  // ── Studio commission: forward the retained application fee to the studio ──
+  // No-op unless this deposit's PI carries studio-commission metadata. Idempotent
+  // via the unique payment_intent_id on studio_commission_transfers.
+  await processStudioCommissionTransfer(supabase, stripe, paymentIntent, 'deposit')
 
   const confirmedBookingData = await loadBookingWithArtist(supabase, bookingId)
   if (confirmedBookingData) {
@@ -486,17 +498,246 @@ async function handleBalanceSucceeded(
   // Idempotency: skip if already recorded.
   if (booking.balance_paid) return
 
-  const { error } = await supabase
+  // A gift card may have been applied against the balance (metadata carries the
+  // id + amount). Fold its fields into the same balance_paid=false CAS so the
+  // whole thing lands atomically and exactly once even under concurrent
+  // webhook delivery — only the update that flips balance_paid decrements.
+  const gcId = paymentIntent.metadata.gift_card_id
+  const gcApplied = Number(paymentIntent.metadata.gift_card_applied_pence)
+  const hasGiftCard = Boolean(gcId) && Number.isFinite(gcApplied) && gcApplied > 0
+
+  const updateFields: Record<string, unknown> = {
+    balance_paid: true,
+    balance_payment_intent_id: paymentIntent.id,
+    updated_at: new Date().toISOString(),
+  }
+  if (hasGiftCard) {
+    updateFields.gift_card_id = gcId
+    updateFields.gift_card_amount_applied_pence = gcApplied
+  }
+
+  const { data: claimed, error } = await supabase
     .from('bookings')
-    .update({
-      balance_paid: true,
-      balance_payment_intent_id: paymentIntent.id,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateFields)
     .eq('id', bookingId)
+    .eq('balance_paid', false)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     throw new Error(`Failed to mark balance paid for booking ${bookingId}: ${error.message}`)
+  }
+
+  // Only the delivery that actually flipped balance_paid decrements the card.
+  if (claimed && hasGiftCard && gcId) {
+    const ok = await decrementGiftCardCAS(supabase, gcId, gcApplied)
+    if (!ok) {
+      console.error(
+        `[stripe-webhook] gift card ${gcId} could not be decremented for balance on booking ${bookingId}`,
+      )
+    }
+  }
+
+  // ── Studio commission: forward the retained application fee to the studio ──
+  // Only the delivery that flipped balance_paid runs this; it is itself
+  // idempotent via the unique payment_intent_id, and a no-op for solo artists.
+  if (claimed) {
+    await processStudioCommissionTransfer(supabase, getStripe(), paymentIntent, 'balance')
+  }
+}
+
+// ── Studio commission transfer (platform → studio connected account) ────────
+
+/**
+ * Forward a studio's commission (the application fee the platform retained on a
+ * deposit/balance destination charge) to the studio's own connected account,
+ * and record it in studio_commission_transfers.
+ *
+ * No-op unless the PaymentIntent carries studio-commission metadata (studio_id,
+ * studio_connect_account_id, studio_commission_pence) — so solo-artist bookings,
+ * which never set that metadata, are entirely unaffected.
+ *
+ * Idempotency: a 'pending' row is inserted first, claiming the PI via the UNIQUE
+ * stripe_payment_intent_id. A redelivery / concurrent delivery loses that insert
+ * (23505) and returns without creating a duplicate transfer. On transfer success
+ * the row is marked 'paid' (with the transfer id); on failure it is marked
+ * 'failed' and logged — a retry sweep over 'failed' rows is a follow-up (see the
+ * report), not attempted inline.
+ */
+async function processStudioCommissionTransfer(
+  supabase: AdminClient,
+  stripe: Stripe,
+  paymentIntent: Stripe.PaymentIntent,
+  source: 'deposit' | 'balance',
+): Promise<void> {
+  const md = paymentIntent.metadata
+  const studioId = md.studio_id
+  const studioAccountId = md.studio_connect_account_id
+  const feePence = Number(md.studio_commission_pence)
+  const artistId = md.artist_id
+  const bookingId = md.booking_id && md.booking_id.length > 0 ? md.booking_id : null
+
+  // Solo artist / no commission → nothing to forward.
+  if (!studioId || !studioAccountId || !artistId || !Number.isFinite(feePence) || feePence <= 0) {
+    return
+  }
+
+  // Claim the PI with a pending row. UNIQUE(stripe_payment_intent_id) makes a
+  // repeat delivery lose this insert — the idempotency gate for the transfer.
+  const { error: insertErr } = await supabase
+    .from('studio_commission_transfers')
+    .insert({
+      studio_id: studioId,
+      artist_id: artistId,
+      booking_id: bookingId,
+      source,
+      amount_pence: feePence,
+      stripe_payment_intent_id: paymentIntent.id,
+      status: 'pending',
+    })
+
+  if (insertErr) {
+    // 23505 = already claimed by a prior/concurrent delivery → transfer done/underway.
+    if (insertErr.code !== '23505') {
+      console.error(
+        `[stripe-webhook] failed to record studio commission transfer for PI ${paymentIntent.id}: ${insertErr.message}`,
+      )
+    }
+    return
+  }
+
+  try {
+    const transfer = await stripe.transfers.create(
+      {
+        amount: feePence,
+        currency: paymentIntent.currency,
+        destination: studioAccountId,
+        metadata: {
+          studio_id: studioId,
+          artist_id: artistId,
+          booking_id: bookingId ?? '',
+          source,
+          payment_intent_id: paymentIntent.id,
+        },
+      },
+      { idempotencyKey: `studio_commission_${paymentIntent.id}` },
+    )
+
+    const { error: paidErr } = await supabase
+      .from('studio_commission_transfers')
+      .update({ stripe_transfer_id: transfer.id, status: 'paid' })
+      .eq('stripe_payment_intent_id', paymentIntent.id)
+
+    if (paidErr) {
+      console.error(
+        `[stripe-webhook] studio commission transfer ${transfer.id} created but row not marked paid for PI ${paymentIntent.id}: ${paidErr.message}`,
+      )
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'transfer failed'
+    console.error(
+      `[stripe-webhook] studio commission transfer failed for PI ${paymentIntent.id}: ${msg}`,
+    )
+    await supabase
+      .from('studio_commission_transfers')
+      .update({ status: 'failed' })
+      .eq('stripe_payment_intent_id', paymentIntent.id)
+  }
+}
+
+// ── Gift card helpers (shared with create-deposit / create-balance) ─────────
+
+/**
+ * Optimistic compare-and-swap decrement of a gift card's remaining balance.
+ * Returns true when the decrement was applied, false when it could not be
+ * (card missing, not active, insufficient balance, or lost every CAS race).
+ * When the balance hits zero the card is marked 'redeemed'. Safe to call with
+ * appliedPence <= 0 (no-op → true).
+ */
+export async function decrementGiftCardCAS(
+  supabase: AdminClient,
+  cardId: string,
+  appliedPence: number,
+): Promise<boolean> {
+  if (appliedPence <= 0) return true
+
+  const MAX_ATTEMPTS = 4
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const { data: card, error } = await supabase
+      .from('gift_cards')
+      .select('remaining_amount_pence, status')
+      .eq('id', cardId)
+      .maybeSingle()
+
+    if (error || !card) return false
+    if (card.status !== 'active') return false
+
+    const remaining = Number(card.remaining_amount_pence)
+    if (remaining < appliedPence) return false
+
+    const newRemaining = remaining - appliedPence
+    const newStatus = newRemaining <= 0 ? 'redeemed' : 'active'
+
+    const { data: updated } = await supabase
+      .from('gift_cards')
+      .update({ remaining_amount_pence: newRemaining, status: newStatus })
+      .eq('id', cardId)
+      .eq('remaining_amount_pence', remaining)
+      .eq('status', 'active')
+      .select('id')
+      .maybeSingle()
+
+    if (updated) return true
+    // CAS lost to a concurrent redemption — retry against the fresh balance.
+  }
+
+  return false
+}
+
+/**
+ * Link a gift card to a booking and decrement it, reading the id + applied
+ * amount from PaymentIntent metadata. The gift_card_id-IS-NULL CAS is the
+ * idempotency gate: only the first delivery to claim the (still-null) link
+ * decrements the card; redeliveries — or a booking that already has a card
+ * linked — no-op. Best-effort: never throws, so a hiccup here cannot fail an
+ * otherwise-confirmed booking.
+ */
+async function applyGiftCardFromMetadata(
+  supabase: AdminClient,
+  bookingId: string,
+  metadata: Stripe.Metadata,
+): Promise<void> {
+  const gcId = metadata.gift_card_id
+  const gcApplied = Number(metadata.gift_card_applied_pence)
+  if (!gcId || !Number.isFinite(gcApplied) || gcApplied <= 0) return
+
+  const { data: linked, error } = await supabase
+    .from('bookings')
+    .update({
+      gift_card_id: gcId,
+      gift_card_amount_applied_pence: gcApplied,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', bookingId)
+    .is('gift_card_id', null)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    console.error(
+      `[stripe-webhook] failed to link gift card ${gcId} to booking ${bookingId}: ${error.message}`,
+    )
+    return
+  }
+
+  // Only the delivery that claimed the (previously null) link decrements.
+  if (!linked) return
+
+  const ok = await decrementGiftCardCAS(supabase, gcId, gcApplied)
+  if (!ok) {
+    console.error(
+      `[stripe-webhook] gift card ${gcId} could not be decremented for deposit on booking ${bookingId}`,
+    )
   }
 }
 
@@ -671,6 +912,21 @@ async function handleAccountUpdated(
   if (error) {
     throw new Error(
       `Failed to sync Connect status for account ${account.id}: ${error.message}`,
+    )
+  }
+
+  // A Connect account id belongs to exactly one owner. If it is a STUDIO's
+  // payout account (not an artist's), the update above matched no rows; sync the
+  // studios row instead so studio commission payouts unlock once verified. The
+  // studios table has no updated_at trigger dependency here — set status only.
+  const { error: studioErr } = await supabase
+    .from('studios')
+    .update({ stripe_connect_status: status })
+    .eq('stripe_connect_account_id', account.id)
+
+  if (studioErr) {
+    throw new Error(
+      `Failed to sync studio Connect status for account ${account.id}: ${studioErr.message}`,
     )
   }
 }

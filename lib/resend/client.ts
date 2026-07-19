@@ -36,6 +36,7 @@ export type EmailType =
   | 'new_message_notification'
   | 'consent_form_submitted'
   | 'healed_photo_request'
+  | 'studio_invite'
 
 export interface SendEmailParams {
   to: string

@@ -15,6 +15,14 @@ interface DepositPaymentProps {
   accentColor: string
   onSuccess: () => void
   onError: (message: string) => void
+  // ── Optional: enable the "Have a gift card?" flow ──
+  // The gift-card input only renders when all three are supplied, since the
+  // component must be able to re-create the deposit PaymentIntent server-side
+  // (with the code) to apply the discount. Omit them to keep the plain flow.
+  bookingId?: string
+  accessToken?: string | null
+  artistId?: string
+  clientEmail?: string | null
 }
 
 const stripePromise = getStripeClient()
@@ -25,7 +33,12 @@ function PaymentForm({
   accentColor,
   onSuccess,
   onError,
-}: Omit<DepositPaymentProps, 'clientSecret'>) {
+}: {
+  depositAmount: number
+  accentColor: string
+  onSuccess: () => void
+  onError: (message: string) => void
+}) {
   const stripe = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
@@ -93,14 +106,172 @@ function PaymentForm({
   )
 }
 
+// ── Optional gift-card entry panel ──
+function GiftCardPanel({
+  depositAmount,
+  accentColor,
+  artistId,
+  bookingId,
+  accessToken,
+  clientEmail,
+  onApplied,
+  onFullyCovered,
+}: {
+  depositAmount: number
+  accentColor: string
+  artistId: string
+  bookingId: string
+  accessToken: string
+  clientEmail?: string | null
+  onApplied: (args: { clientSecret: string; chargedPence: number; appliedPence: number }) => void
+  onFullyCovered: (appliedPence: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [applied, setApplied] = useState(false)
+
+  const handleApply = async () => {
+    const trimmed = code.trim()
+    if (trimmed.length < 4) {
+      setError('Please enter a valid gift card code.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+
+    try {
+      // 1) Preview: validate the code + report how much it would apply.
+      const previewRes = await fetch('/api/giftcards/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: trimmed,
+          artistId,
+          amountPence: Math.round(depositAmount * 100),
+        }),
+      })
+      const preview = (await previewRes.json()) as {
+        error?: string
+        appliedAmountPence?: number
+      }
+      if (!previewRes.ok) {
+        throw new Error(preview.error ?? 'That gift card could not be applied.')
+      }
+
+      // 2) Commit: re-create the deposit PaymentIntent with the code so the
+      //    charged amount is reduced. The real decrement happens on success.
+      const applyRes = await fetch('/api/stripe/create-deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId,
+          accessToken,
+          clientEmail: clientEmail ?? undefined,
+          giftCardCode: trimmed,
+        }),
+      })
+      const data = (await applyRes.json()) as {
+        error?: string
+        clientSecret?: string
+        giftCardFullyCovered?: boolean
+        appliedAmountPence?: number
+        giftCardAppliedPence?: number
+        chargedAmountPence?: number
+      }
+      if (!applyRes.ok) {
+        throw new Error(data.error ?? 'Failed to apply gift card.')
+      }
+
+      if (data.giftCardFullyCovered) {
+        setApplied(true)
+        onFullyCovered(data.appliedAmountPence ?? Math.round(depositAmount * 100))
+        return
+      }
+
+      if (data.clientSecret && typeof data.chargedAmountPence === 'number') {
+        setApplied(true)
+        onApplied({
+          clientSecret: data.clientSecret,
+          chargedPence: data.chargedAmountPence,
+          appliedPence: data.giftCardAppliedPence ?? preview.appliedAmountPence ?? 0,
+        })
+        return
+      }
+
+      throw new Error('Unexpected response applying gift card.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (applied) return null
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs font-semibold text-white/60 hover:text-white underline underline-offset-2 transition-colors"
+      >
+        Have a gift card?
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3">
+      <label className="block text-xs font-semibold text-white/60 uppercase tracking-wider">
+        Gift card code
+      </label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="GIFT-XXXX-XXXX-XXXX"
+          autoCapitalize="characters"
+          disabled={busy}
+          className="flex-1 min-w-0 bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/25 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={() => void handleApply()}
+          disabled={busy}
+          className="px-4 py-2 rounded-lg font-bold text-sm transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+          style={{ backgroundColor: accentColor, color: '#0a0a0a' }}
+        >
+          {busy ? '…' : 'Apply'}
+        </button>
+      </div>
+      {error && (
+        <p className="text-red-400 text-xs" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function DepositPayment({
   clientSecret,
   depositAmount,
   accentColor,
   onSuccess,
   onError,
+  bookingId,
+  accessToken,
+  artistId,
+  clientEmail,
 }: DepositPaymentProps) {
   const [ready, setReady] = useState(false)
+  const [activeClientSecret, setActiveClientSecret] = useState(clientSecret)
+  const [displayAmount, setDisplayAmount] = useState(depositAmount)
+  const [appliedPence, setAppliedPence] = useState<number | null>(null)
+  const [fullyCovered, setFullyCovered] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -112,6 +283,13 @@ export function DepositPayment({
     }
   }, [])
 
+  // Keep in sync if the parent hands down a fresh secret (e.g. a retry).
+  useEffect(() => {
+    setActiveClientSecret(clientSecret)
+  }, [clientSecret])
+
+  const giftCardEnabled = Boolean(bookingId && accessToken && artistId)
+
   if (!ready) {
     return (
       <div className="flex items-center justify-center py-8" role="status" aria-label="Loading payment form">
@@ -120,28 +298,68 @@ export function DepositPayment({
     )
   }
 
+  if (fullyCovered) {
+    return (
+      <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm p-4 rounded-xl text-center font-medium space-y-1">
+        <p>Gift card applied — deposit covered in full.</p>
+        <p className="text-emerald-400/70 text-xs">Nothing left to pay. Awaiting artist confirmation.</p>
+      </div>
+    )
+  }
+
   return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret,
-        appearance: {
-          theme: 'night',
-          variables: {
-            colorPrimary: accentColor,
-            colorBackground: '#171717',
-            colorText: '#f5f5f0',
-            borderRadius: '8px',
+    <div className="space-y-4">
+      {giftCardEnabled && (
+        <GiftCardPanel
+          depositAmount={depositAmount}
+          accentColor={accentColor}
+          artistId={artistId as string}
+          bookingId={bookingId as string}
+          accessToken={accessToken as string}
+          clientEmail={clientEmail}
+          onFullyCovered={() => setFullyCovered(true)}
+          onApplied={({ clientSecret: cs, chargedPence, appliedPence: ap }) => {
+            setAppliedPence(ap)
+            setDisplayAmount(chargedPence / 100)
+            setActiveClientSecret(cs)
+          }}
+        />
+      )}
+
+      {appliedPence !== null && (
+        <div className="flex items-center justify-between bg-emerald-500/[0.06] border border-emerald-500/20 rounded-lg px-3 py-2 text-xs">
+          <span className="text-emerald-400 font-semibold">
+            Gift card applied: −£{(appliedPence / 100).toFixed(2)}
+          </span>
+          <span className="text-white/70">
+            New total £{displayAmount.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      <Elements
+        key={activeClientSecret}
+        stripe={stripePromise}
+        options={{
+          clientSecret: activeClientSecret,
+          appearance: {
+            theme: 'night',
+            variables: {
+              colorPrimary: accentColor,
+              colorBackground: '#171717',
+              colorText: '#f5f5f0',
+              borderRadius: '8px',
+            },
           },
-        },
-      }}
-    >
-      <PaymentForm
-        depositAmount={depositAmount}
-        accentColor={accentColor}
-        onSuccess={onSuccess}
-        onError={onError}
-      />
-    </Elements>
+        }}
+      >
+        <PaymentForm
+          depositAmount={displayAmount}
+          accentColor={accentColor}
+          onSuccess={onSuccess}
+          onError={onError}
+        />
+      </Elements>
+    </div>
   )
 }

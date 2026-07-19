@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
 import { createHoldSchema } from '@/lib/validations/booking'
 import { isSlotAvailable, createBookingHold } from '@/lib/booking/availability'
+import { logAnalyticsEvent } from '@/lib/analytics/events'
 import { CONSULTATION_DURATION_HOURS } from '@/lib/constants'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -101,6 +102,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       sessionId,
       CONSULTATION_DURATION_HOURS,
     )
+    // Funnel: a held slot marks the start of a booking attempt.
+    void logAnalyticsEvent(artistId, 'booking_started', { date, time: time ?? null })
     return NextResponse.json({ ...hold, reused: false }, { status: 201 })
   } catch (err) {
     // A concurrent request won the race and holds this slot: the unique index

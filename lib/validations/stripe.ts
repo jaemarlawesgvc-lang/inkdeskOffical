@@ -21,6 +21,10 @@ export const createDepositSchema = z.object({
   artistId: z.string().uuid('Invalid artist ID').optional(),
   clientEmail: z.string().email('Invalid client email').optional(),
   accessToken: z.string().min(1, 'Access token is required'),
+  // Optional gift-card code to apply against the deposit. Validated + priced
+  // server-side; the actual decrement happens on payment success (or inline
+  // when the card fully covers the deposit and no Stripe charge is created).
+  giftCardCode: z.string().min(4, 'Invalid gift card code').optional(),
 })
 
 export type CreateDepositInput = z.infer<typeof createDepositSchema>
@@ -33,6 +37,8 @@ export const createBalanceSchema = z.object({
   bookingId: z.string().uuid('Invalid booking ID'),
   accessToken: z.string().min(1, 'Access token is required'),
   clientEmail: z.string().email('Invalid client email').optional(),
+  // Optional gift-card code to apply against the balance. See createDepositSchema.
+  giftCardCode: z.string().min(4, 'Invalid gift card code').optional(),
 })
 
 export type CreateBalanceInput = z.infer<typeof createBalanceSchema>

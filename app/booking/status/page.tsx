@@ -80,6 +80,32 @@ function BookingStatusContent() {
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
   const [rescheduleSuccess, setRescheduleSuccess] = useState(false)
 
+  // Cancel state
+  const [cancelConfirm, setCancelConfirm] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+
+  const handleCancelBooking = async () => {
+    if (!booking) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      const res = await fetch('/api/booking/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.bookingId, token }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Cancellation failed.')
+      setCancelConfirm(false)
+      void fetchStatus()
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const handleRescheduleSubmit = async () => {
     if (!rescheduleDate || !rescheduleTime || !booking) return
     setRescheduling(true)
@@ -301,6 +327,9 @@ function BookingStatusContent() {
                       accentColor="#ffb700"
                       onSuccess={handlePaymentSuccess}
                       onError={(msg) => setPaymentError(msg)}
+                      bookingId={booking.bookingId}
+                      artistId={booking.artistId}
+                      accessToken={token}
                     />
                   </Suspense>
                 </div>
@@ -346,7 +375,46 @@ function BookingStatusContent() {
                   </svg>
                   Reschedule {booking.bookingType === 'consultation' ? 'Consultation' : 'Appointment'}
                 </button>
-              ) : (
+              ) : null}
+
+              {!rescheduleOpen && (
+                cancelConfirm ? (
+                  <div className="bg-red-500/[0.06] border border-red-500/20 rounded-xl p-4 space-y-3">
+                    <p className="text-sm text-white/80 text-center">
+                      Cancel this {booking.bookingType === 'consultation' ? 'consultation' : 'appointment'}?
+                      {booking.depositPaid && ' Deposits are refunded when you cancel with enough notice; late cancellations may forfeit the deposit.'}
+                    </p>
+                    {cancelError && <p className="text-xs text-red-400 text-center" role="alert">{cancelError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setCancelConfirm(false); setCancelError(null) }}
+                        className="flex-1 py-2.5 px-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Keep it
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelBooking}
+                        disabled={cancelling}
+                        className="flex-1 py-2.5 px-4 bg-red-500/80 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        {cancelling ? 'Cancelling…' : 'Cancel booking'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setCancelConfirm(true)}
+                    className="w-full py-2.5 px-4 text-white/40 hover:text-red-400 text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Cancel booking
+                  </button>
+                )
+              )}
+
+              {rescheduleOpen && (
                 <div className="space-y-4 bg-white/[0.02] border border-white/5 rounded-xl p-4 sm:p-5">
                   <div className="flex items-center justify-between border-b border-white/5 pb-3">
                     <h3 className="text-sm font-semibold">Reschedule Appointment</h3>

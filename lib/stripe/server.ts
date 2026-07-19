@@ -170,6 +170,16 @@ export async function createDepositPaymentIntent(params: {
   artistId: string
   clientEmail: string
   artistStripeAccountId?: string
+  /**
+   * Studio commission. When > 0 (studio-affiliated artist with a commission
+   * rate + a verified studio Connect account), this is added as the
+   * application_fee_amount on the destination charge — retained by the PLATFORM
+   * and later forwarded to the studio's account by the webhook. Omit / 0 for a
+   * solo artist, which keeps this an ordinary 100%-to-artist destination charge.
+   */
+  applicationFeePence?: number
+  studioId?: string
+  studioConnectAccountId?: string
 }): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe()
 
@@ -192,6 +202,22 @@ export async function createDepositPaymentIntent(params: {
   if (params.artistStripeAccountId) {
     paymentIntentParams.transfer_data = {
       destination: params.artistStripeAccountId,
+    }
+  }
+
+  // Studio commission: on a destination charge, application_fee_amount is
+  // retained by the platform (to be forwarded to the studio by the webhook).
+  if (
+    params.applicationFeePence &&
+    params.applicationFeePence > 0 &&
+    params.studioConnectAccountId
+  ) {
+    paymentIntentParams.application_fee_amount = params.applicationFeePence
+    paymentIntentParams.metadata = {
+      ...paymentIntentParams.metadata,
+      studio_id: params.studioId ?? '',
+      studio_connect_account_id: params.studioConnectAccountId,
+      studio_commission_pence: String(params.applicationFeePence),
     }
   }
 
@@ -229,6 +255,10 @@ export async function createBalancePaymentIntent(params: {
   artistId: string
   clientEmail: string
   artistStripeAccountId?: string
+  /** Studio commission — see createDepositPaymentIntent. Omit / 0 for solo. */
+  applicationFeePence?: number
+  studioId?: string
+  studioConnectAccountId?: string
 }): Promise<{ clientSecret: string; paymentIntentId: string }> {
   const stripe = getStripe()
 
@@ -250,6 +280,22 @@ export async function createBalancePaymentIntent(params: {
   if (params.artistStripeAccountId) {
     paymentIntentParams.transfer_data = {
       destination: params.artistStripeAccountId,
+    }
+  }
+
+  // Studio commission: application_fee_amount is retained by the platform on the
+  // destination charge, then forwarded to the studio's account by the webhook.
+  if (
+    params.applicationFeePence &&
+    params.applicationFeePence > 0 &&
+    params.studioConnectAccountId
+  ) {
+    paymentIntentParams.application_fee_amount = params.applicationFeePence
+    paymentIntentParams.metadata = {
+      ...paymentIntentParams.metadata,
+      studio_id: params.studioId ?? '',
+      studio_connect_account_id: params.studioConnectAccountId,
+      studio_commission_pence: String(params.applicationFeePence),
     }
   }
 

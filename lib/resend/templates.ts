@@ -862,3 +862,50 @@ ${shareLine}
   }
 }
 
+// ---------------------------------------------------------------------------
+// 21. Studio Invite — to an invited artist / front-desk member
+// ---------------------------------------------------------------------------
+
+export interface StudioInviteData {
+  /** The studio the person is being invited to. */
+  studioName: string
+  /** Who sent the invite (studio owner display name), if known. */
+  inviterName: string | null
+  /** Their role in the studio, humanised for the copy. */
+  roleLabel: string
+  /** The accept link: `${appUrl}/studio/accept?token=<invite_token>`. */
+  acceptUrl: string
+}
+
+export function studioInviteTemplate(data: StudioInviteData): {
+  subject: string
+  html: string
+} {
+  const invitedBy = data.inviterName
+    ? `<strong style="color:#ffffff;">${esc(data.inviterName)}</strong> has invited you`
+    : 'You&rsquo;ve been invited'
+
+  const content = `
+<h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">You&rsquo;re invited to join ${esc(data.studioName)}</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#a3a3a3;line-height:1.5;">
+  ${invitedBy} to join <strong style="color:#ffffff;">${esc(data.studioName)}</strong> on Inkquire as ${esc(data.roleLabel)}.
+</p>
+<p style="margin:0 0 24px;font-size:14px;color:#a3a3a3;line-height:1.5;">
+  Accepting links your account to the studio&rsquo;s shared calendar and roster. If you don&rsquo;t
+  have an Inkquire account yet, you can create one with this email address first, then accept.
+</p>
+<a href="${data.acceptUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Accept invitation</a>
+<p style="margin:24px 0 0;font-size:12px;color:#525252;line-height:1.5;">
+  If the button doesn&rsquo;t work, copy and paste this link into your browser:<br />
+  <span style="color:#737373;word-break:break-all;">${data.acceptUrl}</span>
+</p>
+<p style="margin:12px 0 0;font-size:12px;color:#525252;line-height:1.5;">
+  This invitation expires in 14 days. If you weren&rsquo;t expecting it, you can safely ignore this email.
+</p>`
+
+  return {
+    subject: `You're invited to join ${data.studioName} on Inkquire`,
+    html: layout(content),
+  }
+}
+

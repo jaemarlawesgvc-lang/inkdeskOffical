@@ -17,6 +17,7 @@ import {
   conversationInviteTemplate,
   bookingRescheduledTemplate,
   healedPhotoRequestTemplate,
+  studioInviteTemplate,
   type BookingEmailData,
 } from '@/lib/resend/templates'
 import { getAppUrl } from '@/lib/app-url'
@@ -527,6 +528,42 @@ export async function sendConversationInvite(
     subject,
     html,
     emailType: 'new_message_notification',
+    bookingId: null,
+    userId: null,
+    supabase,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 10. Studio Invite — to an invited artist / front-desk member
+//
+// bookingId is null (studio invites have no booking). Not deduped by the
+// email_logs partial index — a studio owner may legitimately re-send an
+// invite, and each send should go out.
+// ---------------------------------------------------------------------------
+
+export async function sendStudioInvite(
+  supabase: SupabaseClient,
+  params: {
+    to: string
+    studioName: string
+    inviterName: string | null
+    roleLabel: string
+    acceptUrl: string
+  },
+): Promise<SendResult> {
+  const { subject, html } = studioInviteTemplate({
+    studioName: params.studioName,
+    inviterName: params.inviterName,
+    roleLabel: params.roleLabel,
+    acceptUrl: params.acceptUrl,
+  })
+
+  return sendEmail({
+    to: params.to,
+    subject,
+    html,
+    emailType: 'studio_invite',
     bookingId: null,
     userId: null,
     supabase,

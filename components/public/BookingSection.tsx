@@ -98,7 +98,7 @@ export function BookingSection({
   const [references, setReferences] = useState<ReferenceUpload[]>([])
 
   const [holdId, setHoldId] = useState<string | null>(null)
-  const [, setBookingId] = useState<string | null>(null)
+  const [bookingId, setBookingId] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const sessionIdRef = useRef<string>(SESSION_KEY())
@@ -392,6 +392,9 @@ export function BookingSection({
             accentColor={accentColor}
             onSuccess={handlePaymentSuccess}
             onError={handlePaymentError}
+            bookingId={bookingId ?? undefined}
+            artistId={artistId}
+            accessToken={accessToken}
           />
         </div>
       </section>

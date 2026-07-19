@@ -1,8 +1,10 @@
 import { cache } from 'react'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
+import { logAnalyticsEvent } from '@/lib/analytics/events'
 import { isFullyBookedNext14Days } from '@/lib/booking/availability'
 import { clientEnv } from '@/lib/env.client'
 import { PublicHeader } from '@/components/public/PublicHeader'
@@ -198,6 +200,14 @@ export default async function ArtistPage({
       isOwnerPreview = true
     } else {
       notFound()
+    }
+  }
+
+  // Funnel: record a public page view (skip owner previews and obvious bots).
+  if (artist.onboarding_complete && !isOwnerPreview) {
+    const ua = headers().get('user-agent') ?? ''
+    if (!/bot|crawl|spider|slurp|bingpreview|facebookexternalhit|preview|monitor/i.test(ua)) {
+      void logAnalyticsEvent(artist.id, 'page_view', { username: artist.username })
     }
   }
 

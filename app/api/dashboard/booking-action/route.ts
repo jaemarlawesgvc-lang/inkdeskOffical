@@ -4,6 +4,7 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/sup
 import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
 import { loadBookingWithArtist, sendBookingConfirmation, sendBookingCancelled, sendBookingCompleted, sendBookingUpgraded } from '@/lib/resend/send'
 import { getStripe } from '@/lib/stripe/server'
+import { logAnalyticsEvent } from '@/lib/analytics/events'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -51,6 +52,36 @@ async function forfeitDeposit(
     return { forfeited: false, reason: `intent status ${intent.status}` }
   } catch (err) {
     return { forfeited: false, reason: err instanceof Error ? err.message : 'capture failed' }
+  }
+}
+
+/**
+ * Refund (or release) a booking's deposit — the "timely cancellation" path.
+ *   • succeeded        → refund the captured charge back to the client
+ *   • requires_capture → cancel the uncaptured authorization (never charged)
+ *   • anything else     → nothing to refund
+ * Never throws — returns whether the deposit is now (or already) returned.
+ */
+async function refundDeposit(
+  intentId: string,
+): Promise<{ refunded: boolean; reason: string }> {
+  try {
+    const stripe = getStripe()
+    const intent = await stripe.paymentIntents.retrieve(intentId)
+    if (intent.status === 'succeeded') {
+      await stripe.refunds.create({ payment_intent: intentId, reason: 'requested_by_customer' })
+      return { refunded: true, reason: 'refunded' }
+    }
+    if (intent.status === 'requires_capture') {
+      await stripe.paymentIntents.cancel(intentId)
+      return { refunded: true, reason: 'authorization_released' }
+    }
+    if (intent.status === 'canceled') {
+      return { refunded: true, reason: 'already_released' }
+    }
+    return { refunded: false, reason: `intent status ${intent.status}` }
+  } catch (err) {
+    return { refunded: false, reason: err instanceof Error ? err.message : 'refund failed' }
   }
 }
 
@@ -195,6 +226,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: error.message || 'Update failed' }, { status: 500 })
   }
 
+  // Funnel: a completed booking is the terminal success event.
+  if (action === 'complete') {
+    void logAnalyticsEvent(artistId, 'booking_completed', { bookingId })
+  }
+
   // Notify the client of the status change. Awaited (with .catch) so the send
   // actually completes before this serverless invocation can be frozen.
   if (action === 'confirm' || action === 'cancel' || action === 'complete') {
@@ -240,6 +276,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         cancelledDate: bookingBeforeUpdate.booking_date,
         artistEmail: artistProfile?.email ?? null,
       })
+    }
+  }
+
+  // Artist-initiated cancellation → always refund the client's deposit. The
+  // artist cancelling is never the client's fault, so no forfeit applies here
+  // (client-initiated late cancels are handled by /api/booking/cancel). Idempotent
+  // via deposit_refunded; non-fatal so the status change always succeeds.
+  if (action === 'cancel') {
+    const { data: bookingRow } = await db
+      .from('bookings')
+      .select('stripe_payment_intent_id, deposit_paid, deposit_forfeited, deposit_refunded')
+      .eq('id', bookingId)
+      .eq('artist_id', artistId)
+      .single()
+
+    if (
+      bookingRow?.stripe_payment_intent_id &&
+      bookingRow.deposit_paid &&
+      !bookingRow.deposit_forfeited &&
+      !bookingRow.deposit_refunded
+    ) {
+      const result = await refundDeposit(bookingRow.stripe_payment_intent_id)
+      if (result.refunded) {
+        const { error: refundErr } = await db
+          .from('bookings')
+          .update({ deposit_refunded: true, stripe_payment_status: 'refunded', updated_at: new Date().toISOString() })
+          .eq('id', bookingId)
+          .eq('artist_id', artistId)
+        if (refundErr) {
+          console.error('[booking-action] deposit_refunded flag update failed:', refundErr.message)
+        }
+      } else {
+        console.info(`[booking-action] cancel ${bookingId}: deposit not refunded (${result.reason})`)
+      }
     }
   }
 
