@@ -11,6 +11,7 @@ interface LoginPageProps {
     message?: string
     error?: string
     next?: string
+    email?: string
   }
 }
 
@@ -37,6 +38,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     <LoginForm
       successMessage={successMessage}
       errorMessage={errorMessage}
+      defaultEmail={searchParams.email}
     />
   )
 }

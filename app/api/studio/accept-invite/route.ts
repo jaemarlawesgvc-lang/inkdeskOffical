@@ -72,6 +72,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'This invite has expired. Ask the studio owner to send a new one.' }, { status: 410 })
   }
 
+  // ── Require a verified email — the whole gate rests on email ownership ──
+  if (!user.email_confirmed_at) {
+    return NextResponse.json(
+      { error: 'Please verify your email address before accepting a studio invite.' },
+      { status: 403 },
+    )
+  }
+
   // ── Email match — the invited address must be the signed-in account ──
   if (!invitedEmail || !currentEmail || invitedEmail !== currentEmail) {
     return NextResponse.json(
@@ -95,6 +103,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'You are already a member of this studio.' }, { status: 409 })
   }
 
+  // ── A user may belong to only ONE studio. Block accepting if they're already
+  // active elsewhere or own a studio — otherwise resolveStudioMembership can't
+  // deterministically pick one and every studio route breaks for them. ──
+  const { data: otherActive } = await admin
+    .from('studio_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .neq('studio_id', studioId)
+    .limit(1)
+  if (otherActive && otherActive.length > 0) {
+    return NextResponse.json(
+      { error: 'You are already an active member of another studio. Leave it before joining a new one.' },
+      { status: 409 },
+    )
+  }
+  const { data: owned } = await admin
+    .from('studios')
+    .select('id')
+    .eq('owner_user_id', user.id)
+    .limit(1)
+  if (owned && owned.length > 0) {
+    return NextResponse.json(
+      { error: 'You already own a studio, so you cannot also join one as a member.' },
+      { status: 409 },
+    )
+  }
+
   // ── Resolve the accepting user's artist record, if they have one ──
   const { data: artist } = await admin
     .from('artists')
@@ -103,8 +139,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .maybeSingle()
   const artistId = (artist?.id as string | undefined) ?? (member.artist_id as string | null) ?? null
 
-  // ── Populate the membership row ──
-  const { error: updateError } = await admin
+  // ── Populate the membership row (optimistic: only claim a still-pending
+  //    invite, and confirm a row was actually claimed to avoid false success). ──
+  const { data: claimed, error: updateError } = await admin
     .from('studio_members')
     .update({
       user_id: user.id,
@@ -112,11 +149,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       artist_id: artistId,
     })
     .eq('id', member.id)
-    .eq('status', 'invited') // optimistic: only claim a still-pending invite
+    .eq('status', 'invited')
+    .select('id')
 
   if (updateError) {
     console.error('[studio] accept-invite update error:', updateError.message)
     return NextResponse.json({ error: 'Could not accept the invite. Please try again.' }, { status: 500 })
+  }
+  if (!claimed || claimed.length === 0) {
+    // Someone withdrew or accepted it between our SELECT and UPDATE.
+    return NextResponse.json(
+      { error: 'This invite is no longer available. Ask the studio owner to send a new one.' },
+      { status: 409 },
+    )
   }
 
   // ── Link the artist to the studio so they show in the roster/calendar ──

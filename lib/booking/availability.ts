@@ -116,6 +116,7 @@ export interface HoldValidation {
     bookingDate: string
     bookingTime: string | null
     expiresAt: string
+    durationHours: number
   } | null
 }
 
@@ -126,7 +127,7 @@ export async function validateHold(
 ): Promise<HoldValidation> {
   const { data: hold, error } = await supabase
     .from('booking_holds')
-    .select('id, artist_id, booking_date, booking_time, expires_at, session_id')
+    .select('id, artist_id, booking_date, booking_time, expires_at, session_id, duration_hours')
     .eq('id', holdId)
     .single()
 
@@ -151,6 +152,7 @@ export async function validateHold(
       bookingDate: hold.booking_date,
       bookingTime: hold.booking_time,
       expiresAt: hold.expires_at,
+      durationHours: Number(hold.duration_hours) || CONSULTATION_DURATION_HOURS,
     },
   }
 }

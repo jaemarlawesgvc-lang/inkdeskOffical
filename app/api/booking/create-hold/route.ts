@@ -22,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  const { artistId, date, time, sessionId } = parsed.data
+  const { artistId, date, time, sessionId, serviceId } = parsed.data
   const supabase = createSupabaseAdminClient()
 
   // Verify artist exists and is publicly bookable
@@ -37,13 +37,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Artist not found' }, { status: 404 })
   }
 
+  // Resolve the reserved slot length SERVER-SIDE: the selected service's real
+  // duration, else the consultation default. The stored hold duration is what
+  // the overlap/exclusion checks use, so the client must NEVER dictate it —
+  // understating it would let a long appointment be double-booked.
+  let durationHours = CONSULTATION_DURATION_HOURS
+  if (serviceId) {
+    const { data: service } = await supabase
+      .from('services')
+      .select('duration_minutes')
+      .eq('id', serviceId)
+      .eq('artist_id', artistId)
+      .eq('active', true)
+      .maybeSingle()
+    if (!service) {
+      return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+    }
+    durationHours = Number(service.duration_minutes) / 60
+  }
+
   // Check availability before creating hold
   const availability = await isSlotAvailable(
     supabase,
     artistId,
     date,
     time,
-    CONSULTATION_DURATION_HOURS,
+    durationHours,
   )
 
   if (!availability.available) {
@@ -100,7 +119,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       date,
       time,
       sessionId,
-      CONSULTATION_DURATION_HOURS,
+      durationHours,
     )
     // Funnel: a held slot marks the start of a booking attempt.
     void logAnalyticsEvent(artistId, 'booking_started', { date, time: time ?? null })

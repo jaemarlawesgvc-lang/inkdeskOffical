@@ -7,6 +7,10 @@ export const metadata: Metadata = {
     'Create your free Inkquire account. No credit card required.',
 }
 
-export default function SignupPage() {
-  return <SignupForm />
+interface SignupPageProps {
+  searchParams: { email?: string }
+}
+
+export default function SignupPage({ searchParams }: SignupPageProps) {
+  return <SignupForm defaultEmail={searchParams.email} />
 }

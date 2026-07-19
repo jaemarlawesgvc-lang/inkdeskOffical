@@ -14,6 +14,7 @@
 import { randomBytes } from 'crypto'
 import type Stripe from 'stripe'
 import { getStripe, priceIdToPlan } from '@/lib/stripe/server'
+import { refundDepositCharge } from '@/lib/stripe/refunds'
 import {
   sendBookingConfirmation,
   sendArtistNotification,
@@ -375,14 +376,20 @@ async function handlePaymentIntentSucceeded(
       ? 'A conflicting booking was confirmed for this slot'
       : 'The booking hold expired before payment completed'
 
-    try {
-      await stripe.refunds.create({
-        payment_intent: paymentIntent.id,
-        reason: 'requested_by_customer',
-      })
-    } catch (refundErr) {
-      const msg = refundErr instanceof Error ? refundErr.message : 'Refund failed'
-      console.error(`[stripe-webhook] refund failed for PI ${paymentIntent.id}:`, msg)
+    // Full unwind: pulls the artist's share back, refunds any studio
+    // application fee (no commission transfer exists yet at this pre-confirm
+    // point, so there is nothing to reverse) and restores any gift-card value.
+    const refundResult = await refundDepositCharge(supabase, paymentIntent.id)
+
+    // Only record the booking as refunded/cancelled when the money actually came
+    // back (refunded / released / already-unwound). If the refund FAILED, do NOT
+    // mark it refunded — leave the booking for retry/manual handling and log
+    // loudly, so we never tell the client they were refunded when they were not.
+    if (refundResult.outcome === 'failed') {
+      console.error(
+        `[stripe-webhook] AUTO-REFUND FAILED for PI ${paymentIntent.id} (booking ${bookingId}): ${refundResult.reason}. Booking left un-refunded for manual handling.`,
+      )
+      return
     }
 
     await supabase
@@ -423,12 +430,12 @@ async function handlePaymentIntentSucceeded(
     throw new Error(`Failed to confirm booking ${bookingId}: ${confirmError.message}`)
   }
 
-  // ── Gift card: finalize the decrement + link on payment success ──
-  // The gift_card_id-IS-NULL CAS is the idempotency gate: only the first
-  // delivery claims the link and decrements; redeliveries (or a card already
-  // linked) skip. Best-effort — a failure here must not fail the confirmed
-  // booking (the client was correctly charged the reduced remainder).
-  await applyGiftCardFromMetadata(supabase, bookingId, metadata)
+  // ── Gift card: mark the reservation consumed on payment success ──
+  // The card was ALREADY decremented at create time and a 'reserved' ledger row
+  // was keyed to this PI. Do NOT decrement again — only flip reserved→consumed.
+  // Idempotent (status guard); a no-op for non-gift-card PIs. Best-effort — a
+  // failure here must not fail the confirmed booking.
+  await consumeGiftCardApplication(supabase, paymentIntent.id)
 
   const deleteHoldQuery = supabase
     .from('booking_holds')
@@ -499,9 +506,9 @@ async function handleBalanceSucceeded(
   if (booking.balance_paid) return
 
   // A gift card may have been applied against the balance (metadata carries the
-  // id + amount). Fold its fields into the same balance_paid=false CAS so the
-  // whole thing lands atomically and exactly once even under concurrent
-  // webhook delivery — only the update that flips balance_paid decrements.
+  // id + amount) and was already decremented + reserved at create time. Fold the
+  // display fields into the same balance_paid=false CAS so they land atomically.
+  // The card is NOT decremented here — the reservation is only marked consumed.
   const gcId = paymentIntent.metadata.gift_card_id
   const gcApplied = Number(paymentIntent.metadata.gift_card_applied_pence)
   const hasGiftCard = Boolean(gcId) && Number.isFinite(gcApplied) && gcApplied > 0
@@ -528,15 +535,10 @@ async function handleBalanceSucceeded(
     throw new Error(`Failed to mark balance paid for booking ${bookingId}: ${error.message}`)
   }
 
-  // Only the delivery that actually flipped balance_paid decrements the card.
-  if (claimed && hasGiftCard && gcId) {
-    const ok = await decrementGiftCardCAS(supabase, gcId, gcApplied)
-    if (!ok) {
-      console.error(
-        `[stripe-webhook] gift card ${gcId} could not be decremented for balance on booking ${bookingId}`,
-      )
-    }
-  }
+  // The card was ALREADY decremented at create time (a 'reserved' ledger row is
+  // keyed to this PI). Do NOT decrement again — only flip reserved→consumed.
+  // Idempotent (status guard) and a no-op for non-gift-card balances.
+  await consumeGiftCardApplication(supabase, paymentIntent.id)
 
   // ── Studio commission: forward the retained application fee to the studio ──
   // Only the delivery that flipped balance_paid runs this; it is itself
@@ -695,49 +697,119 @@ export async function decrementGiftCardCAS(
 }
 
 /**
- * Link a gift card to a booking and decrement it, reading the id + applied
- * amount from PaymentIntent metadata. The gift_card_id-IS-NULL CAS is the
- * idempotency gate: only the first delivery to claim the (still-null) link
- * decrements the card; redeliveries — or a booking that already has a card
- * linked — no-op. Best-effort: never throws, so a hiccup here cannot fail an
- * otherwise-confirmed booking.
+ * Optimistic compare-and-swap RE-CREDIT of a gift card's remaining balance —
+ * the inverse of decrementGiftCardCAS, used to restore value when a reserved
+ * charge fails or is refunded. Reactivates a fully-redeemed card. Never
+ * over-credits: callers gate the credit on a ledger-row status transition so a
+ * redelivery cannot call this twice for the same reservation. Returns true when
+ * the credit landed. Safe to call with amountPence <= 0 (no-op → true).
  */
-async function applyGiftCardFromMetadata(
+export async function incrementGiftCardCAS(
   supabase: AdminClient,
-  bookingId: string,
-  metadata: Stripe.Metadata,
-): Promise<void> {
-  const gcId = metadata.gift_card_id
-  const gcApplied = Number(metadata.gift_card_applied_pence)
-  if (!gcId || !Number.isFinite(gcApplied) || gcApplied <= 0) return
+  cardId: string,
+  amountPence: number,
+): Promise<boolean> {
+  if (amountPence <= 0) return true
 
-  const { data: linked, error } = await supabase
-    .from('bookings')
-    .update({
-      gift_card_id: gcId,
-      gift_card_amount_applied_pence: gcApplied,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', bookingId)
-    .is('gift_card_id', null)
-    .select('id')
-    .maybeSingle()
+  const MAX_ATTEMPTS = 4
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const { data: card, error } = await supabase
+      .from('gift_cards')
+      .select('remaining_amount_pence, status')
+      .eq('id', cardId)
+      .maybeSingle()
+
+    if (error || !card) return false
+    // A voided card is terminal — never resurrect it.
+    if (card.status === 'void') return false
+
+    const remaining = Number(card.remaining_amount_pence)
+    const newRemaining = remaining + amountPence
+    // Re-crediting a drained ('redeemed') card brings it back to 'active'.
+    const newStatus = card.status === 'redeemed' ? 'active' : card.status
+
+    const { data: updated } = await supabase
+      .from('gift_cards')
+      .update({ remaining_amount_pence: newRemaining, status: newStatus })
+      .eq('id', cardId)
+      .eq('remaining_amount_pence', remaining)
+      .eq('status', card.status)
+      .select('id')
+      .maybeSingle()
+
+    if (updated) return true
+    // CAS lost to a concurrent change — retry against the fresh balance.
+  }
+
+  return false
+}
+
+/**
+ * Mark the gift-card reservation for a succeeded PaymentIntent 'consumed'. The
+ * card was already decremented at create time, so this NEVER touches the card
+ * balance — it only advances the ledger row's status. Idempotent (only rows
+ * still 'reserved' flip) and a no-op for PIs with no gift-card reservation.
+ * Best-effort: logs, never throws.
+ */
+async function consumeGiftCardApplication(
+  supabase: AdminClient,
+  paymentIntentId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('gift_card_applications')
+    .update({ status: 'consumed', updated_at: new Date().toISOString() })
+    .eq('payment_intent_id', paymentIntentId)
+    .eq('status', 'reserved')
 
   if (error) {
     console.error(
-      `[stripe-webhook] failed to link gift card ${gcId} to booking ${bookingId}: ${error.message}`,
+      `[stripe-webhook] failed to mark gift card application consumed for PI ${paymentIntentId}: ${error.message}`,
+    )
+  }
+}
+
+/**
+ * Release the gift-card reservation for a FAILED PaymentIntent: re-credit the
+ * card and mark the ledger row 'released'. The status transition is claimed
+ * FIRST (CAS reserved→released) and only the winner re-credits, so a webhook
+ * redelivery can never re-credit twice. Idempotent + best-effort.
+ */
+async function releaseGiftCardApplication(
+  supabase: AdminClient,
+  paymentIntentId: string,
+): Promise<void> {
+  const { data: rows, error } = await supabase
+    .from('gift_card_applications')
+    .select('id, gift_card_id, amount_pence')
+    .eq('payment_intent_id', paymentIntentId)
+    .eq('status', 'reserved')
+
+  if (error) {
+    console.error(
+      `[stripe-webhook] failed to load gift card reservation for PI ${paymentIntentId}: ${error.message}`,
     )
     return
   }
 
-  // Only the delivery that claimed the (previously null) link decrements.
-  if (!linked) return
+  for (const row of rows ?? []) {
+    // Claim the release transition BEFORE re-crediting — this is the no-double-
+    // credit gate. A concurrent delivery that loses this update does not credit.
+    const { data: claimed } = await supabase
+      .from('gift_card_applications')
+      .update({ status: 'released', updated_at: new Date().toISOString() })
+      .eq('id', row.id)
+      .eq('status', 'reserved')
+      .select('id')
+      .maybeSingle()
 
-  const ok = await decrementGiftCardCAS(supabase, gcId, gcApplied)
-  if (!ok) {
-    console.error(
-      `[stripe-webhook] gift card ${gcId} could not be decremented for deposit on booking ${bookingId}`,
-    )
+    if (!claimed) continue
+
+    const ok = await incrementGiftCardCAS(supabase, row.gift_card_id, Number(row.amount_pence))
+    if (!ok) {
+      console.error(
+        `[stripe-webhook] gift card ${row.gift_card_id} could not be re-credited on release for PI ${paymentIntentId}`,
+      )
+    }
   }
 }
 
@@ -863,10 +935,21 @@ async function handlePaymentIntentFailed(
   const paymentIntent = event.data.object as Stripe.PaymentIntent
   const metadata = paymentIntent.metadata
 
-  if (metadata.type !== 'deposit') return
+  const isDeposit = metadata.type === 'deposit'
+  const isBalance = metadata.kind === 'balance'
+  if (!isDeposit && !isBalance) return
+
+  // Release any gift-card value reserved at create time for this failed PI:
+  // re-credit the card and mark the ledger row 'released'. Idempotent and safe
+  // for both deposit and balance PIs (no-op when there was no reservation).
+  await releaseGiftCardApplication(supabase, paymentIntent.id)
 
   const bookingId = metadata.booking_id
   if (!bookingId) return
+
+  // Only the deposit flow records a failed payment status + notifies the artist;
+  // a failed balance retry leaves balance_paid=false for the client to retry.
+  if (!isDeposit) return
 
   const { error } = await supabase
     .from('bookings')

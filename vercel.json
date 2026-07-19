@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/healed-photo-request",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/retry-commission-transfers",
+      "schedule": "30 */6 * * *"
     }
   ],
   "regions": ["lhr1"],

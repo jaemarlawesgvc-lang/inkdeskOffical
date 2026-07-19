@@ -198,6 +198,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         )
       }
 
+      // Record the consumed application in the ledger (source of truth). The card
+      // is already decremented; this row is 'consumed' immediately. Best-effort +
+      // effectively once — the balance_paid claim-CAS above gates this branch.
+      const { error: appErr } = await supabase
+        .from('gift_card_applications')
+        .insert({
+          gift_card_id: card.id,
+          booking_id: bookingId,
+          payment_intent_id: null,
+          source: 'balance',
+          amount_pence: applied,
+          status: 'consumed',
+        })
+      if (appErr) {
+        console.error('[create-balance] gift card application insert error:', appErr.message)
+      }
+
       return NextResponse.json({
         giftCardFullyCovered: true,
         balancePaid: true,
@@ -205,15 +222,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })
     }
 
-    // ── Partial: charge the remainder; the card decrements on payment success. ──
-    // Studio commission (if any) is levied on the CHARGED remainder.
+    // ── Partial: RESERVE the card NOW, then charge the remainder. ──
+    // Mirrors create-deposit: the card is decremented at CREATE time and a
+    // 'reserved' ledger row is keyed to the new PaymentIntent, so the CAS
+    // decrement gates against double-spend. Studio commission (if any) is levied
+    // on the CHARGED remainder only.
+    const stripe = getStripe()
     const gcCommission = await resolveStudioCommissionForArtist(booking.artist_id)
     const gcFeePence = gcCommission
       ? computeCommissionFeePence(charged, gcCommission.commissionRatePct)
       : 0
 
+    // Step 1: create the PaymentIntent (idempotencyKey → same PI on retry).
+    let piId = ''
+    let piClientSecret: string | null = null
     try {
-      const stripe = getStripe()
       const metadata: Record<string, string> = {
         kind: 'balance',
         booking_id: bookingId,
@@ -245,28 +268,85 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!paymentIntent.client_secret) {
         throw new Error('Stripe did not return a client secret')
       }
-
-      await supabase
-        .from('bookings')
-        .update({
-          balance_payment_intent_id: paymentIntent.id,
-          total_amount_pence: totalPence,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', bookingId)
-
-      return NextResponse.json({
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        amountPence: charged,
-        giftCardAppliedPence: applied,
-        chargedAmountPence: charged,
-      })
+      piId = paymentIntent.id
+      piClientSecret = paymentIntent.client_secret
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Balance creation failed'
       console.error('[create-balance] gift card Stripe error:', message)
       return NextResponse.json({ error: 'Failed to create balance payment' }, { status: 500 })
     }
+
+    // Step 2: claim the reservation. UNIQUE(payment_intent_id) dedupes an
+    // endpoint retry (same PI) — only the FIRST insert decrements.
+    const { data: reservation, error: reserveErr } = await supabase
+      .from('gift_card_applications')
+      .insert({
+        gift_card_id: card.id,
+        booking_id: bookingId,
+        payment_intent_id: piId,
+        source: 'balance',
+        amount_pence: applied,
+        status: 'reserved',
+      })
+      .select('id')
+      .maybeSingle()
+
+    if (reserveErr) {
+      if (reserveErr.code === '23505') {
+        await supabase
+          .from('bookings')
+          .update({
+            balance_payment_intent_id: piId,
+            gift_card_id: card.id,
+            gift_card_amount_applied_pence: applied,
+            total_amount_pence: totalPence,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', bookingId)
+        return NextResponse.json({
+          clientSecret: piClientSecret,
+          paymentIntentId: piId,
+          amountPence: charged,
+          giftCardAppliedPence: applied,
+          chargedAmountPence: charged,
+        })
+      }
+      console.error('[create-balance] gift card reservation insert error:', reserveErr.message)
+      try { await stripe.paymentIntents.cancel(piId) } catch { /* best-effort */ }
+      return NextResponse.json({ error: 'Failed to reserve gift card' }, { status: 500 })
+    }
+
+    // Step 3: decrement the card (the double-spend gate).
+    const decremented = await decrementGiftCardCAS(supabase, card.id, applied)
+    if (!decremented) {
+      if (reservation?.id) {
+        await supabase.from('gift_card_applications').delete().eq('id', reservation.id)
+      }
+      try { await stripe.paymentIntents.cancel(piId) } catch { /* best-effort */ }
+      return NextResponse.json(
+        { error: 'Gift card balance changed, please try again' },
+        { status: 409 },
+      )
+    }
+
+    await supabase
+      .from('bookings')
+      .update({
+        balance_payment_intent_id: piId,
+        gift_card_id: card.id,
+        gift_card_amount_applied_pence: applied,
+        total_amount_pence: totalPence,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', bookingId)
+
+    return NextResponse.json({
+      clientSecret: piClientSecret,
+      paymentIntentId: piId,
+      amountPence: charged,
+      giftCardAppliedPence: applied,
+      chargedAmountPence: charged,
+    })
   }
 
   // ── Reuse an existing actionable PaymentIntent if one matches ──

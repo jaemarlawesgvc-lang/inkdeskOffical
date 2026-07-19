@@ -60,14 +60,18 @@ export async function resolveStudioMembership(
     return { studioId: owned.id, role: 'owner', studio: toStudioSummary(owned) }
   }
 
-  // 2. Active membership.
-  const { data: membership } = await admin
+  // 2. Active membership. Use order+limit(1) rather than maybeSingle: if a user
+  // somehow ends up active in two studios, maybeSingle THROWS and locks them out
+  // of both. Deterministically pick their earliest membership instead.
+  const { data: memberships } = await admin
     .from('studio_members')
     .select('studio_id, role')
     .eq('user_id', userId)
     .eq('status', 'active')
-    .maybeSingle()
+    .order('created_at', { ascending: true })
+    .limit(1)
 
+  const membership = memberships?.[0]
   if (!membership) return null
 
   const { data: studio } = await admin
@@ -286,7 +290,7 @@ export async function resolveStudioCommissionForArtist(
 
   const { data: studio } = await admin
     .from('studios')
-    .select('id, stripe_connect_account_id, stripe_connect_status')
+    .select('id, owner_user_id, stripe_connect_account_id, stripe_connect_status')
     .eq('id', member.studio_id)
     .maybeSingle()
 
@@ -297,6 +301,11 @@ export async function resolveStudioCommissionForArtist(
   ) {
     return null
   }
+
+  // Commission is a paid (Studio-plan) capability. If the owner has downgraded,
+  // stop levying it — otherwise a lapsed owner keeps skimming member income.
+  const ownerPlan = await getUserPlan(studio.owner_user_id as string)
+  if (ownerPlan !== 'studio') return null
 
   return {
     studioId: studio.id,

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server'
-import { resolveStudioMembership } from '@/lib/studio/access'
+import { resolveStudioMembership, getUserPlan } from '@/lib/studio/access'
 import { sendStudioInvite } from '@/lib/resend/send'
 import { getAppUrl } from '@/lib/app-url'
 
@@ -38,6 +38,22 @@ async function requireMembership(): Promise<MembershipContext> {
     return { ok: false, response: NextResponse.json({ error: 'No studio found for this account.' }, { status: 404 }) }
   }
   return { ok: true, userId: user.id, membership }
+}
+
+// Owner-only mutations additionally require an ACTIVE Studio plan — plan is not a
+// one-time create-snapshot; a downgraded owner must lose management powers.
+async function requireOwnerOnPlan(ctx: Extract<MembershipContext, { ok: true }>): Promise<NextResponse | null> {
+  if (ctx.membership.role !== 'owner') {
+    return NextResponse.json({ error: 'Only the studio owner can manage members.' }, { status: 403 })
+  }
+  const plan = await getUserPlan(ctx.userId)
+  if (plan !== 'studio') {
+    return NextResponse.json(
+      { error: 'Managing studio members requires an active Studio plan.', requiredPlan: 'studio', upgradeUrl: '/dashboard/settings/billing' },
+      { status: 403 },
+    )
+  }
+  return null
 }
 
 // ── GET: list members of the caller's studio ──────────────────────────────────
@@ -90,9 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ctx = await requireMembership()
   if (!ctx.ok) return ctx.response
   const { membership } = ctx
-  if (membership.role !== 'owner') {
-    return NextResponse.json({ error: 'Only the studio owner can manage members.' }, { status: 403 })
-  }
+  const planError = await requireOwnerOnPlan(ctx)
+  if (planError) return planError
 
   const body = (await request.json().catch(() => ({}))) as {
     email?: unknown
@@ -102,46 +117,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const role = body.role === 'front_desk' ? 'front_desk' : 'artist'
   const admin = createSupabaseAdminClient()
 
-  // Path A — link an existing artist by id.
+  // Resolve the invite target's email. Two entry points, but BOTH create an
+  // 'invited' row that the target must accept — an owner can never force an
+  // artist into their studio (or levy a commission on them) without consent.
+  //   Path A: link an existing artist → invite that artist's ACCOUNT email.
+  //   Path B: invite a raw email (no account yet).
+  let email: string | null = null
+  let linkedArtistId: string | null = null
+
   if (typeof body.artistId === 'string' && body.artistId) {
     const { data: artist } = await admin
       .from('artists')
-      .select('id, user_id, display_name, username, studio_id')
+      .select('id, user_id, studio_id')
       .eq('id', body.artistId)
       .maybeSingle()
-
     if (!artist) {
       return NextResponse.json({ error: 'Artist not found.' }, { status: 404 })
     }
     if (artist.studio_id && artist.studio_id !== membership.studioId) {
       return NextResponse.json({ error: 'That artist already belongs to another studio.' }, { status: 409 })
     }
-
-    const { data: member, error: insertError } = await admin
-      .from('studio_members')
-      .insert({
-        studio_id: membership.studioId,
-        user_id: artist.user_id,
-        artist_id: artist.id,
-        role,
-        status: 'active',
-      })
-      .select('id')
-      .single()
-
-    if (insertError) {
-      // Unique (studio_id, user_id) violation → already a member.
-      return NextResponse.json({ error: 'That artist is already a member.' }, { status: 409 })
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('email')
+      .eq('id', artist.user_id)
+      .maybeSingle()
+    email = (profile?.email as string | null)?.trim().toLowerCase() ?? null
+    linkedArtistId = artist.id as string
+    if (!email) {
+      return NextResponse.json({ error: "Could not resolve that artist's email to send an invite." }, { status: 422 })
     }
-
-    await admin.from('artists').update({ studio_id: membership.studioId }).eq('id', artist.id)
-
-    return NextResponse.json({ memberId: member.id, status: 'active' })
+  } else if (typeof body.email === 'string' && body.email.includes('@')) {
+    email = body.email.trim().toLowerCase()
   }
 
-  // Path B — invite by email (no account yet).
-  if (typeof body.email === 'string' && body.email.includes('@')) {
-    const email = body.email.trim().toLowerCase()
+  if (email) {
     // 14-day invite window.
     const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -153,6 +163,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         status: 'invited',
         invited_email: email,
         invite_expires_at: expiresAt,
+        // Pre-link the artist (Path A) so acceptance attaches the right profile;
+        // null for a raw-email invite (Path B).
+        artist_id: linkedArtistId,
       })
       // invite_token is DB-defaulted (migration 030); select it back for the link.
       .select('id, invite_token')
@@ -210,9 +223,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const ctx = await requireMembership()
   if (!ctx.ok) return ctx.response
   const { membership } = ctx
-  if (membership.role !== 'owner') {
-    return NextResponse.json({ error: 'Only the studio owner can manage members.' }, { status: 403 })
-  }
+  const planError = await requireOwnerOnPlan(ctx)
+  if (planError) return planError
 
   const body = (await request.json().catch(() => ({}))) as {
     memberId?: unknown
@@ -273,9 +285,8 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   const ctx = await requireMembership()
   if (!ctx.ok) return ctx.response
   const { membership } = ctx
-  if (membership.role !== 'owner') {
-    return NextResponse.json({ error: 'Only the studio owner can manage members.' }, { status: 403 })
-  }
+  const planError = await requireOwnerOnPlan(ctx)
+  if (planError) return planError
 
   const memberId = new URL(request.url).searchParams.get('id')
   if (!memberId) {

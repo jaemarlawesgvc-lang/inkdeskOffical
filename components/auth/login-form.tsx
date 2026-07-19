@@ -45,6 +45,7 @@ function GoogleSubmitButton() {
 interface LoginFormProps {
   successMessage?: string | null
   errorMessage?: string | null
+  defaultEmail?: string
 }
 
 const INITIAL_STATE = {
@@ -60,7 +61,7 @@ const INITIAL_STATE = {
 
 // ─── LoginForm ────────────────────────────────────────────────────────────────
 
-export function LoginForm({ successMessage, errorMessage }: LoginFormProps) {
+export function LoginForm({ successMessage, errorMessage, defaultEmail }: LoginFormProps) {
   const [formState, formAction] = useFormState(loginAction, INITIAL_STATE)
   const state = formState ?? INITIAL_STATE
 
@@ -114,6 +115,7 @@ export function LoginForm({ successMessage, errorMessage }: LoginFormProps) {
               type="email"
               autoComplete="email"
               required
+              defaultValue={defaultEmail}
               placeholder="you@example.com"
               error={state?.errors?.email?.[0]}
             />

@@ -35,6 +35,13 @@ async function captureManualDeposit(
       await stripe.paymentIntents.capture(intentId)
       return { forfeited: true, reason: 'captured' }
     }
+    if (intent.status === 'succeeded') {
+      // Deposits are captured immediately (destination charge already routed the
+      // funds to the artist), so a succeeded intent IS the forfeit — no further
+      // Stripe call needed. Without this the whole no-show automation is inert
+      // and candidates accumulate forever.
+      return { forfeited: true, reason: 'already_captured' }
+    }
     return { forfeited: false, reason: `intent status ${intent.status}` }
   } catch (err) {
     return { forfeited: false, reason: err instanceof Error ? err.message : 'capture failed' }
@@ -130,6 +137,9 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       })
       .eq('id', booking.id)
       .eq('deposit_forfeited', false)
+      // Re-assert the status in the WHERE: if the booking was cancelled/refunded
+      // between the query and now, don't clobber it into no_show.
+      .in('status', ['pending', 'confirmed', 'deposit_paid'])
 
     if (updateErr) {
       results.failed++

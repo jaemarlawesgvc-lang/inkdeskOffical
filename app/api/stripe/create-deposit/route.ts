@@ -212,16 +212,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         )
       }
 
+      // Record the consumed application in the ledger (source of truth). The card
+      // is already decremented; this row is 'consumed' immediately (no charge is
+      // pending). Best-effort + effectively once — the booking claim-CAS above
+      // guarantees only the first request reaches this point.
+      const { error: appErr } = await supabase
+        .from('gift_card_applications')
+        .insert({
+          gift_card_id: card.id,
+          booking_id: bookingId,
+          payment_intent_id: null,
+          source: 'deposit',
+          amount_pence: applied,
+          status: 'consumed',
+        })
+      if (appErr) {
+        console.error('[create-deposit] gift card application insert error:', appErr.message)
+      }
+
       // A fully gift-card-covered deposit creates no PaymentIntent, so the Stripe
       // webhook never fires. Run the same post-confirmation side-effects here that
       // the webhook would on a normal paid deposit: free the slot hold and notify.
-      const deleteHold = supabase
-        .from('booking_holds')
-        .delete()
-        .eq('artist_id', booking.artist_id)
-        .eq('booking_date', booking.booking_date)
-      if (booking.booking_time) deleteHold.eq('booking_time', booking.booking_time)
-      await deleteHold
+      //
+      // Scope the hold delete to THIS booking's specific slot. Holds always carry
+      // a booking_time (NOT NULL), so a time-less booking cannot be matched to a
+      // specific hold — in that case skip rather than broad-deleting EVERY other
+      // client's hold for the date (B4).
+      if (booking.booking_time) {
+        await supabase
+          .from('booking_holds')
+          .delete()
+          .eq('artist_id', booking.artist_id)
+          .eq('booking_date', booking.booking_date)
+          .eq('booking_time', booking.booking_time)
+      }
 
       const coveredBookingData = await loadBookingWithArtist(supabase, bookingId)
       if (coveredBookingData) {
@@ -238,16 +262,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })
     }
 
-    // ── Partial: charge the remainder; the card decrements on payment success. ──
-    // Studio commission (if any) is levied on the CHARGED remainder, not the
-    // full deposit — solo artists get no fee and an unchanged destination charge.
+    // ── Partial: RESERVE the card NOW, then charge the remainder. ──
+    // The card is decremented at CREATE time (not on payment success) and a
+    // 'reserved' ledger row is keyed to the new PaymentIntent. This makes the
+    // CAS decrement the gate against double-spend: two concurrent deposits with
+    // the same code cannot both reserve. Studio commission (if any) is levied on
+    // the CHARGED remainder only.
+    const stripe = getStripe()
     const gcCommission = await resolveStudioCommissionForArtist(booking.artist_id)
     const gcFeePence = gcCommission
       ? computeCommissionFeePence(charged, gcCommission.commissionRatePct)
       : 0
 
+    // Step 1: create the PaymentIntent. The idempotencyKey makes an endpoint
+    // retry return the SAME PI, so the reservation row's UNIQUE(payment_intent_id)
+    // can dedupe it below.
+    let piId = ''
+    let piClientSecret: string | null = null
     try {
-      const stripe = getStripe()
       const metadata: Record<string, string> = {
         booking_id: bookingId,
         artist_id: booking.artist_id,
@@ -279,27 +311,92 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!paymentIntent.client_secret) {
         throw new Error('Stripe did not return a client secret')
       }
-
-      await supabase
-        .from('bookings')
-        .update({
-          stripe_payment_intent_id: paymentIntent.id,
-          deposit_amount: depositAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', bookingId)
-
-      return NextResponse.json({
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        giftCardAppliedPence: applied,
-        chargedAmountPence: charged,
-      })
+      piId = paymentIntent.id
+      piClientSecret = paymentIntent.client_secret
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Deposit creation failed'
       console.error('[create-deposit] gift card Stripe error:', message)
+      // No card value was committed yet (reservation happens below), so nothing
+      // to unwind.
       return NextResponse.json({ error: 'Failed to create deposit payment' }, { status: 500 })
     }
+
+    // Step 2: claim the reservation. UNIQUE(payment_intent_id) makes an endpoint
+    // retry (same PI) a no-op here — only the FIRST insert proceeds to decrement.
+    const { data: reservation, error: reserveErr } = await supabase
+      .from('gift_card_applications')
+      .insert({
+        gift_card_id: card.id,
+        booking_id: bookingId,
+        payment_intent_id: piId,
+        source: 'deposit',
+        amount_pence: applied,
+        status: 'reserved',
+      })
+      .select('id')
+      .maybeSingle()
+
+    if (reserveErr) {
+      // 23505 = a prior/concurrent request already reserved THIS PI. The card was
+      // decremented on that request; this is an idempotent retry — return the
+      // secret without decrementing again.
+      if (reserveErr.code === '23505') {
+        await supabase
+          .from('bookings')
+          .update({
+            stripe_payment_intent_id: piId,
+            gift_card_id: card.id,
+            gift_card_amount_applied_pence: applied,
+            deposit_amount: depositAmount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', bookingId)
+        return NextResponse.json({
+          clientSecret: piClientSecret,
+          paymentIntentId: piId,
+          giftCardAppliedPence: applied,
+          chargedAmountPence: charged,
+        })
+      }
+      console.error('[create-deposit] gift card reservation insert error:', reserveErr.message)
+      // Cancel the (unconfirmed) PI so no orphaned charge can complete.
+      try { await stripe.paymentIntents.cancel(piId) } catch { /* best-effort */ }
+      return NextResponse.json({ error: 'Failed to reserve gift card' }, { status: 500 })
+    }
+
+    // Step 3: decrement the card (the double-spend gate). Only the first reserver
+    // for this PI reaches here.
+    const decremented = await decrementGiftCardCAS(supabase, card.id, applied)
+    if (!decremented) {
+      // Card drained between preview and reserve — release the row and cancel the
+      // PI so no value is lost and the client can pay by another means.
+      if (reservation?.id) {
+        await supabase.from('gift_card_applications').delete().eq('id', reservation.id)
+      }
+      try { await stripe.paymentIntents.cancel(piId) } catch { /* best-effort */ }
+      return NextResponse.json(
+        { error: 'Gift card balance changed, please try again' },
+        { status: 409 },
+      )
+    }
+
+    await supabase
+      .from('bookings')
+      .update({
+        stripe_payment_intent_id: piId,
+        gift_card_id: card.id,
+        gift_card_amount_applied_pence: applied,
+        deposit_amount: depositAmount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', bookingId)
+
+    return NextResponse.json({
+      clientSecret: piClientSecret,
+      paymentIntentId: piId,
+      giftCardAppliedPence: applied,
+      chargedAmountPence: charged,
+    })
   }
 
   // If a PaymentIntent already exists for this booking, return its client secret

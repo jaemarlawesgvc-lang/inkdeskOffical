@@ -34,6 +34,10 @@ export const createHoldSchema = z.object({
     .string()
     .min(8, 'Session ID must be at least 8 characters')
     .max(128, 'Session ID too long'),
+  // Optional: reserve the slot for a specific service's duration (not the
+  // 30-min consultation default). The server resolves the real duration from
+  // the services table — the client cannot dictate the reserved length.
+  serviceId: z.string().uuid('Invalid service ID').optional(),
 })
 
 export type CreateHoldInput = z.infer<typeof createHoldSchema>

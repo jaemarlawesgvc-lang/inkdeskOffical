@@ -30,7 +30,7 @@ function SubmitButton() {
   )
 }
 
-export function SignupForm() {
+export function SignupForm({ defaultEmail }: { defaultEmail?: string }) {
   const [state, formAction] = useFormState(signupAction, INITIAL_STATE)
 
   if (state?.success) {
@@ -103,6 +103,7 @@ export function SignupForm() {
               name="email"
               type="email"
               autoComplete="email"
+              defaultValue={defaultEmail}
               className="w-full rounded-lg border border-ink-700 bg-ink-950 px-4 py-3 text-parchment-100 outline-none transition placeholder:text-ink-500 focus:border-gold-500"
               placeholder="you@example.com"
             />

@@ -4,14 +4,57 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/sup
 import {
   callGemini,
   buildSitePrompt,
-  GeminiTimeoutError,
-  GeminiInvalidResponseError,
   type SiteData,
 } from '@/lib/gemini/client'
 import { resolveActivePlan, checkMeteredFeature } from '@/lib/stripe/plans'
 
 // Re-export SiteData so Step5GenerateSite.tsx import remains valid
 export type { SiteData }
+
+/**
+ * Build a valid starter site from the artist's own onboarding data. Used when
+ * the AI generation fails or isn't configured, so completing onboarding — and
+ * therefore publishing the public page — is NEVER hard-blocked on a third-party
+ * AI call. The artist can refine everything later in the dashboard.
+ */
+function buildFallbackSiteData(params: {
+  displayName: string
+  bio: string
+  styleTags: string[]
+}): SiteData {
+  const name = params.displayName.trim() || 'My Studio'
+  const styles = params.styleTags.length ? params.styleTags.join(', ') : 'custom tattoos'
+  const body =
+    params.bio.trim() ||
+    `Hi, I'm ${name}. I specialise in ${styles}. Get in touch to book a consultation and bring your idea to life.`
+
+  return {
+    hero: {
+      headline: name,
+      subheadline: params.styleTags.length ? `${styles} tattoos` : 'Custom tattoos & consultations',
+      ctaText: 'Book a consultation',
+    },
+    about: {
+      title: 'About',
+      body: body.slice(0, 800),
+    },
+    services: [
+      {
+        name: 'Consultation',
+        description: 'A relaxed chat to plan your piece, placement, and pricing.',
+        priceFrom: 'Free',
+      },
+      {
+        name: 'Custom tattoo',
+        description: 'A bespoke design created for you, booked with a deposit.',
+        priceFrom: 'On request',
+      },
+    ],
+    seoTitle: `${name} — Tattoo Artist`.slice(0, 70),
+    seoDescription: `Book a consultation with ${name}. ${styles}.`.slice(0, 160),
+    colorScheme: { primary: '#080808', secondary: '#1a1a1a', accent: '#ffb700' },
+  }
+}
 
 // ---------------------------------------------------------------------------
 // POST /api/onboarding/generate-site
@@ -79,19 +122,12 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
     generationsThisMonth ?? 0,
   )
 
-  if (!usageCheck.allowed) {
-    return NextResponse.json(
-      {
-        error: usageCheck.reason,
-        currentPlan: usageCheck.currentPlan,
-        requiredPlan: usageCheck.requiredPlan,
-        upgradeUrl: usageCheck.upgradeUrl,
-        currentUsage: usageCheck.currentUsage,
-        limit: usageCheck.limit,
-      },
-      { status: 403 },
-    )
-  }
+  // Over the monthly AI limit? Do NOT block onboarding — completing it publishes
+  // the artist's page, which must never be gated behind an AI quota. Instead we
+  // skip the Gemini call and publish a starter site (below). The quota still caps
+  // real AI generations; the artist can regenerate with AI next month or on a
+  // paid plan.
+  const aiAllowed = usageCheck.allowed
 
   const portfolioImages =
     (artist.portfolio_images as { public_url: string }[] | null) ?? []
@@ -106,31 +142,34 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
     portfolioImageCount: portfolioImages.length,
   })
 
+  const fallbackSite = () =>
+    buildFallbackSiteData({
+      displayName: artist.display_name ?? 'Unknown Artist',
+      bio: artist.bio ?? '',
+      styleTags,
+    })
+
   let siteData: SiteData
-  try {
-    siteData = await callGemini(prompt)
-  } catch (err) {
-    console.error('[onboarding/generate-site] Gemini error:', err instanceof Error ? err.message : err)
-
-    if (err instanceof GeminiTimeoutError) {
-      return NextResponse.json(
-        { error: 'AI generation timed out. Please try again.' },
-        { status: 504 },
+  let usedFallback = false
+  if (!aiAllowed) {
+    // Quota exhausted — publish a starter site rather than blocking completion.
+    siteData = fallbackSite()
+    usedFallback = true
+  } else {
+    try {
+      siteData = await callGemini(prompt)
+    } catch (err) {
+      // AI generation is best-effort. Never strand an artist unpublished just
+      // because Gemini timed out, returned junk, or isn't configured — fall back
+      // to a starter site built from their own onboarding data and still complete
+      // onboarding. They can refine it in the dashboard afterwards.
+      console.error(
+        '[onboarding/generate-site] Gemini failed, using fallback site:',
+        err instanceof Error ? err.message : err,
       )
+      siteData = fallbackSite()
+      usedFallback = true
     }
-
-    if (err instanceof GeminiInvalidResponseError) {
-      return NextResponse.json(
-        { error: 'AI generation returned an invalid response. Please try again.' },
-        { status: 500 },
-      )
-    }
-
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json(
-      { error: `AI generation failed: ${message}` },
-      { status: 500 },
-    )
   }
 
   // Extract FAQs from siteData for separate database storage
@@ -186,17 +225,20 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
 
   // Log the generation to audit_logs for metered tracking (same as
   // /api/generate-site) so repeated onboarding calls count against the plan.
-  await db.from('audit_logs').insert({
-    user_id: user.id,
-    action: 'ai_generation',
-    resource_type: 'artist',
-    resource_id: artist.id,
-    metadata: {
-      plan,
-      generationNumber: (generationsThisMonth ?? 0) + 1,
-      source: 'onboarding',
-    },
-  })
+  // Only count a real AI generation — a fallback consumed no Gemini quota.
+  if (!usedFallback) {
+    await db.from('audit_logs').insert({
+      user_id: user.id,
+      action: 'ai_generation',
+      resource_type: 'artist',
+      resource_id: artist.id,
+      metadata: {
+        plan,
+        generationNumber: (generationsThisMonth ?? 0) + 1,
+        source: 'onboarding',
+      },
+    })
+  }
 
-  return NextResponse.json({ ok: true, siteData })
+  return NextResponse.json({ ok: true, siteData, usedFallback })
 }

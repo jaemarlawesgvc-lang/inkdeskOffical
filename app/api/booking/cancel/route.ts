@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/server'
 import { loadBookingWithArtist, sendBookingCancelled } from '@/lib/resend/send'
 import { notifyCancellationOpening } from '@/lib/booking/notify-cancellation-opening'
 import { getStripe } from '@/lib/stripe/server'
+import { refundDepositCharge } from '@/lib/stripe/refunds'
 import { fromZonedTime } from 'date-fns-tz'
 import { z } from 'zod'
 
@@ -89,29 +90,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     !booking.deposit_forfeited &&
     !booking.deposit_refunded
   ) {
-    const stripe = getStripe()
-    try {
-      const intent = await stripe.paymentIntents.retrieve(booking.stripe_payment_intent_id)
-      if (timely) {
-        if (intent.status === 'succeeded') {
-          await stripe.refunds.create({ payment_intent: intent.id, reason: 'requested_by_customer' })
-        } else if (intent.status === 'requires_capture') {
-          await stripe.paymentIntents.cancel(intent.id)
-        }
+    if (timely) {
+      // Timely cancellation → full refund (unwinds the artist share + any studio
+      // commission transfer via the shared helper).
+      const result = await refundDepositCharge(db, booking.stripe_payment_intent_id)
+      if (['refunded', 'released', 'already'].includes(result.outcome)) {
         depositOutcome = 'refunded'
       } else {
-        // Late cancellation → forfeit: capture a still-held intent; an already
-        // auto-captured deposit simply stays with the artist.
+        console.error('[booking/cancel] refund failed:', result.reason)
+      }
+    } else {
+      // Late cancellation → forfeit: capture a still-held intent; an already
+      // auto-captured deposit (and its studio commission) simply stays put.
+      try {
+        const stripe = getStripe()
+        const intent = await stripe.paymentIntents.retrieve(booking.stripe_payment_intent_id)
         if (intent.status === 'requires_capture') {
           await stripe.paymentIntents.capture(intent.id)
         }
         depositOutcome = 'forfeited'
+      } catch (err) {
+        console.error(
+          '[booking/cancel] forfeit capture failed:',
+          err instanceof Error ? err.message : err,
+        )
       }
-    } catch (err) {
-      console.error(
-        '[booking/cancel] deposit policy failed:',
-        err instanceof Error ? err.message : err,
-      )
     }
   }
 
@@ -123,7 +126,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ? { deposit_refunded: true, stripe_payment_status: 'refunded' }
         : {}),
       ...(depositOutcome === 'forfeited' ? { deposit_forfeited: true } : {}),
-      notes: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', bookingId)
